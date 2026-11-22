@@ -11,6 +11,7 @@ import 'package:karat/domain/book_notice.dart';
 import 'package:karat/domain/currency.dart';
 import 'package:karat/domain/day.dart';
 import 'package:karat/domain/jewellery_item.dart';
+import 'package:karat/domain/stock_query.dart';
 
 class KaratController extends ChangeNotifier {
   KaratController({
@@ -145,20 +146,20 @@ class KaratController extends ChangeNotifier {
     _clearSession();
   }
 
-  Future<BookNotice?> saveItem(JewelleryItem item) async {
+  Future<BookNotice?> saveItem(JewelleryItem item, {int quantity = 1}) async {
     final blocked = _writable();
     if (blocked != null) return blocked;
     final index = _items.indexWhere((existing) => existing.id == item.id);
-    if (index >= 0 && _items[index].isSold) return BookNotice.soldLocked;
-    final stored = await _storeRemote(item, creating: index < 0);
-    if (stored == null) return BookNotice.updateFailed;
-    final next = [..._items];
-    if (index < 0) {
-      next.insert(0, stored);
-    } else {
-      next[index] = stored;
+    if (index >= 0) {
+      if (_items[index].isSold) return BookNotice.soldLocked;
+      return _saveExisting(item, quantity);
     }
-    return _commit(next);
+    if (quantity < 1 || quantity > maxPieceQuantity) {
+      return BookNotice.updateFailed;
+    }
+    final stored = await _createRemote(_batched(item), quantity);
+    if (stored == null) return BookNotice.updateFailed;
+    return _commit([...stored, ..._items]);
   }
 
   Future<BookNotice?> markSold(
@@ -316,19 +317,93 @@ class KaratController extends ChangeNotifier {
     if (_currencies.isNotEmpty) _shopCurrencyId = _currencies.first.id;
   }
 
-  Future<JewelleryItem?> _storeRemote(
-    JewelleryItem item, {
-    required bool creating,
-  }) async {
+  Future<BookNotice?> _saveExisting(JewelleryItem edited, int quantity) async {
+    if (quantity < 1 || quantity > maxPieceQuantity) {
+      return BookNotice.updateFailed;
+    }
+    final original = _items.firstWhere((item) => item.id == edited.id);
+    final mates = original.groupId.trim().isEmpty
+        ? [original]
+        : [
+            for (final item in _items)
+              if (!item.isSold && sameBatch(item, original)) item,
+          ];
+    final others =
+        [
+          for (final item in mates)
+            if (item.id != edited.id) item,
+        ]..sort((a, b) {
+          final byDay = a.createdOn.compareTo(b.createdOn);
+          if (byDay != 0) return byDay;
+          return a.id.compareTo(b.id);
+        });
+    final grouped = _batched(edited);
+    final keep = [
+      grouped,
+      for (final item in others.take(quantity - 1)) item.withDetails(grouped),
+    ];
+    final drop = others.skip(quantity - 1).toList();
+    final storedKept = <JewelleryItem>[];
+    for (final item in keep) {
+      final stored = await _storeRemote(item);
+      if (stored == null) return BookNotice.updateFailed;
+      storedKept.add(stored);
+    }
+    for (final item in drop) {
+      final removed = await _deleteRemote(item.id);
+      if (!removed) return BookNotice.updateFailed;
+    }
+    final extra = quantity - mates.length;
+    final created = extra <= 0
+        ? <JewelleryItem>[]
+        : await _createRemote(
+            grouped.asNew(id: newItemId(), createdOn: today),
+            extra,
+          );
+    if (created == null) return BookNotice.updateFailed;
+    final keptById = {for (final item in storedKept) item.id: item};
+    final dropped = {for (final item in drop) item.id};
+    return _commit([
+      ...created,
+      for (final item in _items)
+        if (!dropped.contains(item.id)) keptById[item.id] ?? item,
+    ]);
+  }
+
+  Future<JewelleryItem?> _storeRemote(JewelleryItem item) async {
     final api = itemsApi;
     if (api == null) return item;
     try {
       final token = await auth.idToken();
       if (token == null || token.isEmpty) return null;
-      final remote = creating
-          ? await api.create(token, item)
-          : await api.update(token, item);
-      return item.withServerIdentity(remote);
+      return item.withServerIdentity(await api.update(token, item));
+    } catch (_) {
+      return null;
+    }
+  }
+
+  JewelleryItem _batched(JewelleryItem item) {
+    if (item.groupId.isNotEmpty) return item;
+    return item.withGroup(newGroupId());
+  }
+
+  Future<List<JewelleryItem>?> _createRemote(
+    JewelleryItem item,
+    int quantity,
+  ) async {
+    final api = itemsApi;
+    if (api == null) {
+      return [
+        for (var i = 0; i < quantity; i++)
+          i == 0 ? item : item.withId(newItemId()),
+      ];
+    }
+    try {
+      final token = await auth.idToken();
+      if (token == null || token.isEmpty) return null;
+      final remote = await api.create(token, item, quantity: quantity);
+      if (remote.isEmpty) return null;
+      return [for (final row in remote) item.withServerIdentity(row)];
     } catch (_) {
       return null;
     }

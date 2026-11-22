@@ -58,10 +58,25 @@ Day _shiftMonth(Day monthStart, int direction) {
 /// are left out, as are sales outside the period.
 class PeriodProfit {
   PeriodProfit({required this.period, required List<JewelleryItem> items})
-    : sales = _salesIn(period, items);
+    : sales = _salesIn(period, items),
+      goldAdded = _goldPieces(
+        items,
+        (item) => period.contains(item.createdOn),
+        (a, b) => _byDay(b.createdOn, a.createdOn, a, b),
+      ),
+      goldSold = _goldPieces(items, (item) {
+        final soldOn = item.soldOn;
+        return item.isSold && soldOn != null && period.contains(soldOn);
+      }, (a, b) => _byDay(b.soldOn!, a.soldOn!, a, b));
 
   final GainPeriod period;
   final List<JewelleryItem> sales;
+  final List<JewelleryItem> goldAdded;
+  final List<JewelleryItem> goldSold;
+
+  double get goldAddedGrams => _gramsOf(goldAdded);
+
+  double get goldSoldGrams => _gramsOf(goldSold);
 
   int get revenueCents =>
       sales.fold(0, (sum, item) => sum + (item.soldCents ?? 0));
@@ -71,6 +86,11 @@ class PeriodProfit {
   int get profitCents => revenueCents - costCents;
 
   int get pieceCount => sales.length;
+
+  double get soldGrams {
+    final sum = sales.fold<double>(0, (sum, item) => sum + item.weightGrams);
+    return (sum * 1000).round() / 1000;
+  }
 
   CurrencyTotal totalFor(String currencyId) {
     for (final total in totals) {
@@ -118,6 +138,29 @@ class CurrencyTotal {
   final int revenueCents;
   final int costCents;
   final int profitCents;
+}
+
+List<JewelleryItem> _goldPieces(
+  List<JewelleryItem> items,
+  bool Function(JewelleryItem item) include,
+  int Function(JewelleryItem a, JewelleryItem b) compare,
+) {
+  final matched = items
+      .where((item) => item.metal == Metal.gold && include(item))
+      .toList();
+  matched.sort(compare);
+  return matched;
+}
+
+int _byDay(Day later, Day earlier, JewelleryItem a, JewelleryItem b) {
+  final byDay = later.compareTo(earlier);
+  if (byDay != 0) return byDay;
+  return a.name.toLowerCase().compareTo(b.name.toLowerCase());
+}
+
+double _gramsOf(List<JewelleryItem> items) {
+  final sum = items.fold<double>(0, (sum, item) => sum + item.weightGrams);
+  return (sum * 1000).round() / 1000;
 }
 
 List<JewelleryItem> _salesIn(GainPeriod period, List<JewelleryItem> items) {

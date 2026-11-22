@@ -20,19 +20,26 @@ class StockScreen extends StatefulWidget {
 class _StockScreenState extends State<StockScreen> {
   bool _sold = false;
   String _query = '';
+  PieceKind? _kind;
+  String _grams = '';
 
   @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
       listenable: widget.controller,
       builder: (context, _) {
-        final visible = stockView(
-          widget.controller.items,
-          sold: _sold,
-          query: _query,
+        final groups = stockGroups(
+          stockView(
+            widget.controller.items,
+            sold: _sold,
+            query: _query,
+            kind: _kind,
+            grams: _grams,
+          ),
         );
         final text = AppText.of(context);
         final language = Localizations.localeOf(context).languageCode;
+        final goldTotals = goldGramsByPurity(widget.controller.items);
         return Column(
           children: [
             Padding(
@@ -51,31 +58,68 @@ class _StockScreenState extends State<StockScreen> {
                     },
                   ),
                   const SizedBox(height: 12),
-                  TextField(
-                    onChanged: (value) => setState(() => _query = value),
-                    decoration: InputDecoration(
-                      hintText: text.searchPieces,
-                      prefixIcon: const Icon(Icons.search),
-                    ),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          onChanged: (value) => setState(() => _query = value),
+                          decoration: InputDecoration(
+                            hintText: text.searchPieces,
+                            prefixIcon: const Icon(Icons.search),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      _FilterButton(
+                        active: _kind != null || _grams.trim().isNotEmpty,
+                        tooltip: text.filters,
+                        onPressed: () => _openFilter(context),
+                      ),
+                    ],
                   ),
+                  if (goldTotals.isNotEmpty) ...[
+                    const SizedBox(height: 8),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        goldTotals
+                            .map(
+                              (total) =>
+                                  '${total.$1} ${formatGrams(total.$2, languageCode: language)}',
+                            )
+                            .join(' · '),
+                        key: const Key('stock-gold-totals'),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: KaratColors.ink.withValues(alpha: 0.62),
+                        ),
+                      ),
+                    ),
+                  ],
                 ],
               ),
             ),
             Expanded(
-              child: visible.isEmpty
+              child: groups.isEmpty
                   ? _EmptyStock(
                       sold: _sold,
-                      searching: _query.trim().isNotEmpty,
+                      searching:
+                          _query.trim().isNotEmpty ||
+                          _kind != null ||
+                          _grams.trim().isNotEmpty,
                       text: text,
                     )
                   : ListView.separated(
                       padding: const EdgeInsets.fromLTRB(20, 0, 20, 96),
-                      itemCount: visible.length,
+                      itemCount: groups.length,
                       separatorBuilder: (_, _) => const SizedBox(height: 10),
                       itemBuilder: (context, index) {
-                        final item = visible[index];
+                        final group = groups[index];
+                        final item = group.item;
                         return _PieceCard(
                           item: item,
+                          count: group.count,
                           text: text,
                           languageCode: language,
                           onTap: () {
@@ -96,6 +140,165 @@ class _StockScreenState extends State<StockScreen> {
           ],
         );
       },
+    );
+  }
+
+  Future<void> _openFilter(BuildContext context) async {
+    final result = await showModalBottomSheet<_StockFilter>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      backgroundColor: KaratColors.paper,
+      builder: (context) {
+        return Padding(
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.viewInsetsOf(context).bottom,
+          ),
+          child: _StockFilterSheet(kind: _kind, grams: _grams),
+        );
+      },
+    );
+    if (!mounted || result == null) return;
+    setState(() {
+      _kind = result.kind;
+      _grams = result.grams;
+    });
+  }
+}
+
+class _StockFilter {
+  const _StockFilter({this.kind, this.grams = ''});
+
+  final PieceKind? kind;
+  final String grams;
+}
+
+class _FilterButton extends StatelessWidget {
+  const _FilterButton({
+    required this.active,
+    required this.tooltip,
+    required this.onPressed,
+  });
+
+  final bool active;
+  final String tooltip;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 56,
+      height: 56,
+      child: IconButton(
+        key: const Key('stock-filter'),
+        tooltip: tooltip,
+        onPressed: onPressed,
+        style: IconButton.styleFrom(
+          backgroundColor: active
+              ? KaratColors.gold.withValues(alpha: 0.35)
+              : KaratColors.paper,
+          foregroundColor: KaratColors.ink,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14),
+            side: const BorderSide(color: KaratColors.line),
+          ),
+        ),
+        icon: const Icon(Icons.tune),
+      ),
+    );
+  }
+}
+
+class _StockFilterSheet extends StatefulWidget {
+  const _StockFilterSheet({required this.kind, required this.grams});
+
+  final PieceKind? kind;
+  final String grams;
+
+  @override
+  State<_StockFilterSheet> createState() => _StockFilterSheetState();
+}
+
+class _StockFilterSheetState extends State<_StockFilterSheet> {
+  late PieceKind? _kind = widget.kind;
+  late final TextEditingController _grams = TextEditingController(
+    text: widget.grams,
+  );
+
+  @override
+  void dispose() {
+    _grams.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final text = AppText.of(context);
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(text.filters, style: Theme.of(context).textTheme.titleLarge),
+          const SizedBox(height: 16),
+          Text(text.pieceType, style: Theme.of(context).textTheme.titleSmall),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              ChoiceChip(
+                label: Text(text.anyType),
+                showCheckmark: false,
+                selected: _kind == null,
+                onSelected: (_) => setState(() => _kind = null),
+              ),
+              for (final kind in PieceKind.values)
+                ChoiceChip(
+                  key: Key('stock-type-${kind.name}'),
+                  label: Text(text.kind(kind)),
+                  showCheckmark: false,
+                  selected: _kind == kind,
+                  onSelected: (_) => setState(() => _kind = kind),
+                ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          TextField(
+            key: const Key('stock-grams'),
+            controller: _grams,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            decoration: InputDecoration(
+              labelText: text.weight,
+              suffixText: text.grams,
+            ),
+          ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              TextButton(
+                key: const Key('stock-filter-clear'),
+                onPressed: () {
+                  Navigator.pop(context, const _StockFilter());
+                },
+                child: Text(text.clearFilters),
+              ),
+              const Spacer(),
+              FilledButton(
+                key: const Key('stock-filter-apply'),
+                onPressed: () {
+                  Navigator.pop(
+                    context,
+                    _StockFilter(kind: _kind, grams: _grams.text),
+                  );
+                },
+                child: Text(text.applyFilters),
+              ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 }
@@ -135,12 +338,14 @@ class _EmptyStock extends StatelessWidget {
 class _PieceCard extends StatelessWidget {
   const _PieceCard({
     required this.item,
+    required this.count,
     required this.onTap,
     required this.text,
     required this.languageCode,
   });
 
   final JewelleryItem item;
+  final int count;
   final VoidCallback onTap;
   final AppText text;
   final String languageCode;
@@ -150,8 +355,7 @@ class _PieceCard extends StatelessWidget {
     final profit = item.profitCents;
     final detail = [
       text.kind(item.kind),
-      text.metalName(item.metal),
-      item.purity,
+      '${text.purity} ${item.purity}',
       formatGrams(item.weightGrams, languageCode: languageCode),
     ].join(' · ');
     return Material(
@@ -186,7 +390,16 @@ class _PieceCard extends StatelessWidget {
                       style: Theme.of(context).textTheme.titleMedium,
                     ),
                   ),
-                  if (profit != null)
+                  if (count > 1)
+                    Text(
+                      '× $count',
+                      key: Key('stock-count-${item.id}'),
+                      style: const TextStyle(
+                        color: KaratColors.goldDeep,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    )
+                  else if (profit != null)
                     Text(
                       formatCents(
                         profit,
@@ -215,6 +428,13 @@ class _PieceCard extends StatelessWidget {
                         formatDay(item.soldOn!, languageCode: languageCode),
                         formatCents(
                           item.soldCents!,
+                          currencyId: item.currencyId,
+                        ),
+                      )
+                    : count > 1
+                    ? text.costEachLine(
+                        formatCents(
+                          item.costCents,
                           currencyId: item.currencyId,
                         ),
                       )

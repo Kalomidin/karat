@@ -1,4 +1,5 @@
 import 'package:karat/domain/book_notice.dart';
+import 'package:karat/domain/stock_query.dart';
 import 'package:karat/format.dart';
 import 'package:karat/l10n/app_text.dart';
 import 'package:karat/screens/item_form_screen.dart';
@@ -79,6 +80,7 @@ class ItemDetailScreen extends StatelessWidget {
           );
         }
         final profit = item.profitCents;
+        final stockCount = matchingStockCount(controller.items, item);
         return Scaffold(
           appBar: AppBar(
             title: Text(item.name),
@@ -140,10 +142,20 @@ class ItemDetailScreen extends StatelessWidget {
                   const SizedBox(height: 16),
                 ],
                 Text(
-                  '${text.kind(item.kind)} · ${text.metalName(item.metal)} · ${item.purity}',
+                  '${text.kind(item.kind)} · ${text.purity} ${item.purity}',
                   style: Theme.of(context).textTheme.titleMedium
                       ?.copyWith(color: KaratColors.goldDeep),
                 ),
+                if (stockCount > 1) ...[
+                  const SizedBox(height: 6),
+                  Text(
+                    text.inStockCount(stockCount),
+                    key: const Key('piece-stock-count'),
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: KaratColors.ink.withValues(alpha: 0.72),
+                    ),
+                  ),
+                ],
                 const SizedBox(height: 16),
                 _Fact(
                   label: text.weight,

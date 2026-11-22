@@ -32,8 +32,22 @@ class ItemApi {
     }).toList();
   }
 
-  Future<JewelleryItem> create(String idToken, JewelleryItem item) {
-    return _write(idToken, 'POST', '$apiBase/item', item);
+  Future<List<JewelleryItem>> create(
+    String idToken,
+    JewelleryItem item, {
+    int quantity = 1,
+  }) async {
+    final decoded = await _send(
+      idToken,
+      'POST',
+      '$apiBase/item',
+      _body(item, quantity: quantity),
+    );
+    if (decoded is! List) throw const ItemApiException();
+    return decoded.map((entry) {
+      if (entry is! Map) throw const ItemApiException();
+      return JewelleryItem.fromJson(entry.cast<String, Object?>());
+    }).toList();
   }
 
   Future<JewelleryItem> update(String idToken, JewelleryItem item) {
@@ -74,6 +88,17 @@ class ItemApi {
     String url,
     Map<String, Object?> body,
   ) async {
+    final decoded = await _send(idToken, method, url, body);
+    if (decoded is! Map) throw const ItemApiException();
+    return JewelleryItem.fromJson(decoded.cast<String, Object?>());
+  }
+
+  Future<Object?> _send(
+    String idToken,
+    String method,
+    String url,
+    Map<String, Object?> body,
+  ) async {
     final request = await _http.openUrl(method, Uri.parse(url));
     request.headers.set(HttpHeaders.authorizationHeader, 'Bearer $idToken');
     request.headers.set(HttpHeaders.contentTypeHeader, 'application/json');
@@ -81,13 +106,12 @@ class ItemApi {
     final response = await request.close().timeout(const Duration(seconds: 8));
     final raw = await response.transform(utf8.decoder).join();
     if (response.statusCode != 200) throw const ItemApiException();
-    final decoded = jsonDecode(raw);
-    if (decoded is! Map) throw const ItemApiException();
-    return JewelleryItem.fromJson(decoded.cast<String, Object?>());
+    if (raw.isEmpty) return null;
+    return jsonDecode(raw);
   }
 }
 
-Map<String, Object?> _body(JewelleryItem item) {
+Map<String, Object?> _body(JewelleryItem item, {int? quantity}) {
   return {
     'name': item.name,
     'kind': item.kind.name,
@@ -99,6 +123,8 @@ Map<String, Object?> _body(JewelleryItem item) {
     'notes': item.notes,
     'createdOn': item.createdOn.utcStart,
     if (item.imageKey.isNotEmpty) 'imageKey': item.imageKey,
+    if (item.groupId.isNotEmpty) 'groupId': item.groupId,
+    if (quantity != null) 'quantity': quantity,
   };
 }
 

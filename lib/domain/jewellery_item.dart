@@ -44,6 +44,7 @@ class JewelleryItem {
     this.currencyId = dollarCurrencyId,
     this.imageUrl = '',
     this.imageKey = '',
+    this.groupId = '',
     this.soldOn,
     this.soldCents,
   }) : assert(
@@ -62,6 +63,7 @@ class JewelleryItem {
   final String notes;
   final String imageUrl;
   final String imageKey;
+  final String groupId;
   final Day createdOn;
   final Day? soldOn;
   final int? soldCents;
@@ -83,9 +85,87 @@ class JewelleryItem {
       notes: notes,
       imageUrl: imageUrl,
       imageKey: imageKey,
+      groupId: groupId,
       createdOn: createdOn,
       soldOn: on,
       soldCents: cents,
+    );
+  }
+
+  JewelleryItem withGroup(String groupId) {
+    return JewelleryItem(
+      id: id,
+      name: name,
+      kind: kind,
+      metal: metal,
+      purity: purity,
+      weightGrams: weightGrams,
+      currencyId: currencyId,
+      costCents: costCents,
+      notes: notes,
+      imageUrl: imageUrl,
+      imageKey: imageKey,
+      groupId: groupId,
+      createdOn: createdOn,
+      soldOn: soldOn,
+      soldCents: soldCents,
+    );
+  }
+
+  JewelleryItem withId(String id) {
+    return JewelleryItem(
+      id: id,
+      name: name,
+      kind: kind,
+      metal: metal,
+      purity: purity,
+      weightGrams: weightGrams,
+      currencyId: currencyId,
+      costCents: costCents,
+      notes: notes,
+      imageUrl: imageUrl,
+      imageKey: imageKey,
+      groupId: groupId,
+      createdOn: createdOn,
+      soldOn: soldOn,
+      soldCents: soldCents,
+    );
+  }
+
+  /// Same piece, with the fields from an edit. The id and the day stay.
+  JewelleryItem withDetails(JewelleryItem details) {
+    return JewelleryItem(
+      id: id,
+      name: details.name,
+      kind: details.kind,
+      metal: details.metal,
+      purity: details.purity,
+      weightGrams: details.weightGrams,
+      currencyId: details.currencyId,
+      costCents: details.costCents,
+      notes: details.notes,
+      imageUrl: details.imageUrl,
+      imageKey: details.imageKey,
+      groupId: details.groupId,
+      createdOn: createdOn,
+    );
+  }
+
+  JewelleryItem asNew({required String id, required Day createdOn}) {
+    return JewelleryItem(
+      id: id,
+      name: name,
+      kind: kind,
+      metal: metal,
+      purity: purity,
+      weightGrams: weightGrams,
+      currencyId: currencyId,
+      costCents: costCents,
+      notes: notes,
+      imageUrl: imageUrl,
+      imageKey: imageKey,
+      groupId: groupId,
+      createdOn: createdOn,
     );
   }
 
@@ -103,6 +183,7 @@ class JewelleryItem {
       notes: server.notes,
       imageUrl: imageUrl.isNotEmpty ? imageUrl : server.imageUrl,
       imageKey: server.imageKey.isNotEmpty ? server.imageKey : imageKey,
+      groupId: server.groupId.isNotEmpty ? server.groupId : groupId,
       createdOn: server.createdOn,
       soldOn: server.soldOn,
       soldCents: server.soldCents,
@@ -122,6 +203,7 @@ class JewelleryItem {
       notes: notes,
       imageUrl: imageUrl,
       imageKey: imageKey,
+      groupId: groupId,
       createdOn: createdOn,
     );
   }
@@ -139,6 +221,7 @@ class JewelleryItem {
       'notes': notes,
       'imageUrl': imageUrl,
       'imageKey': imageKey,
+      if (groupId.isNotEmpty) 'groupId': groupId,
       'createdOn': createdOn.iso,
       'soldOn': soldOn?.iso,
       'soldCents': soldCents,
@@ -163,6 +246,7 @@ class JewelleryItem {
       notes: json['notes'] is String ? json['notes'] as String : '',
       imageUrl: json['imageUrl'] is String ? json['imageUrl'] as String : '',
       imageKey: json['imageKey'] is String ? json['imageKey'] as String : '',
+      groupId: json['groupId'] is String ? json['groupId'] as String : '',
       createdOn: Day.fromServer(_string(json, 'createdOn')),
       soldOn: soldOnRaw == null ? null : Day.fromServer(soldOnRaw as String),
       soldCents: soldCents,
@@ -170,10 +254,23 @@ class JewelleryItem {
   }
 }
 
+const maxPieceQuantity = 200;
+
 String newItemId() {
   final now = DateTime.now().microsecondsSinceEpoch.toRadixString(36);
   final salt = Random().nextInt(0x7fffffff).toRadixString(36);
   return '$now$salt';
+}
+
+String newGroupId() {
+  final bytes = List<int>.generate(16, (_) => Random().nextInt(256));
+  bytes[6] = (bytes[6] & 0x0f) | 0x40;
+  bytes[8] = (bytes[8] & 0x3f) | 0x80;
+  final hex = bytes
+      .map((byte) => byte.toRadixString(16).padLeft(2, '0'))
+      .join();
+  return '${hex.substring(0, 8)}-${hex.substring(8, 12)}-'
+      '${hex.substring(12, 16)}-${hex.substring(16, 20)}-${hex.substring(20)}';
 }
 
 class ItemDraft {

@@ -1,5 +1,6 @@
 import 'dart:typed_data';
 
+import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:karat/domain/book_notice.dart';
 import 'package:karat/domain/currency.dart';
@@ -7,6 +8,7 @@ import 'package:karat/data/piece_photo_file.dart';
 import 'package:karat/widgets/currency_menu.dart';
 import 'package:karat/data/piece_photo_upload.dart';
 import 'package:karat/domain/jewellery_item.dart';
+import 'package:karat/domain/stock_query.dart';
 import 'package:karat/l10n/app_text.dart';
 import 'package:karat/state/karat_controller.dart';
 import 'package:karat/theme/karat_theme.dart';
@@ -15,7 +17,7 @@ import 'package:karat/widgets/update_failed_dialog.dart';
 import 'package:karat/widgets/shop_width.dart';
 import 'package:material_ui/material_ui.dart';
 
-const _purities = ['999', '916', '750', '585', '375'];
+const _purities = ['750', '585', '375'];
 
 class ItemFormScreen extends StatefulWidget {
   const ItemFormScreen({
@@ -48,6 +50,7 @@ class _ItemFormScreenState extends State<ItemFormScreen> {
   var _pendingType = 'image/jpeg';
   var _attempted = false;
   var _saving = false;
+  var _quantity = 1;
 
   @override
   void initState() {
@@ -67,6 +70,10 @@ class _ItemFormScreenState extends State<ItemFormScreen> {
         : draft.currencyId;
     _imageUrl = widget.existing?.imageUrl ?? '';
     _imageKey = widget.existing?.imageKey ?? '';
+    final existing = widget.existing;
+    if (existing != null && !existing.isSold) {
+      _quantity = matchingStockCount(widget.controller.items, existing);
+    }
     for (final controller in [_name, _purity, _weight, _cost, _notes]) {
       controller.addListener(_rebuild);
     }
@@ -192,7 +199,10 @@ class _ItemFormScreenState extends State<ItemFormScreen> {
       imageUrl: imageUrl,
       imageKey: imageKey,
     );
-    final error = await widget.controller.saveItem(item);
+    final error = await widget.controller.saveItem(
+      item,
+      quantity: existing != null && existing.isSold ? 1 : _quantity,
+    );
     if (!mounted) return;
     if (error != null) {
       setState(() => _saving = false);
@@ -260,14 +270,7 @@ class _ItemFormScreenState extends State<ItemFormScreen> {
                 label: text.kind,
                 onSelected: (kind) => setState(() => _kind = kind),
               ),
-              _SectionLabel(text.metal),
-              _ChoiceRow<Metal>(
-                options: Metal.values,
-                selected: _metal,
-                label: text.metalName,
-                onSelected: (metal) => setState(() => _metal = metal),
-              ),
-              const SizedBox(height: 12),
+              _SectionLabel(text.purity),
               Wrap(
                 spacing: 8,
                 runSpacing: 8,
@@ -286,9 +289,32 @@ class _ItemFormScreenState extends State<ItemFormScreen> {
                 controller: _purity,
                 textCapitalization: TextCapitalization.characters,
                 decoration: InputDecoration(
-                  labelText: text.purity,
                   errorText: errorFor(
                     draft.purityError == null ? null : text.purityRequired,
+                  ),
+                ),
+              ),
+              if (!editing || !widget.existing!.isSold) ...[
+                const SizedBox(height: 12),
+                _QuantityStepper(
+                  quantity: _quantity,
+                  enabled: !_saving,
+                  label: text.quantity,
+                  onChanged: (value) => setState(() => _quantity = value),
+                ),
+              ],
+              const SizedBox(height: 12),
+              TextField(
+                key: const Key('piece-weight'),
+                controller: _weight,
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                ),
+                decoration: InputDecoration(
+                  labelText: _quantity == 1 ? text.weight : text.weightEach,
+                  suffixText: text.grams,
+                  errorText: errorFor(
+                    draft.weightError == null ? null : text.weightRequired,
                   ),
                 ),
               ),
@@ -301,26 +327,11 @@ class _ItemFormScreenState extends State<ItemFormScreen> {
               ),
               const SizedBox(height: 12),
               TextField(
-                key: const Key('piece-weight'),
-                controller: _weight,
-                keyboardType: const TextInputType.numberWithOptions(
-                  decimal: true,
-                ),
-                decoration: InputDecoration(
-                  labelText: text.weight,
-                  suffixText: text.grams,
-                  errorText: errorFor(
-                    draft.weightError == null ? null : text.weightRequired,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 12),
-              TextField(
                 key: const Key('piece-cost'),
                 controller: _cost,
                 keyboardType: TextInputType.number,
                 decoration: InputDecoration(
-                  labelText: text.cost,
+                  labelText: _quantity == 1 ? text.cost : text.costEach,
                   prefixText: '${currencySymbolFor(_currencyId)} ',
                   errorText: errorFor(
                     draft.costError == null ? null : text.costRequired,
@@ -348,10 +359,135 @@ class _ItemFormScreenState extends State<ItemFormScreen> {
           child: FilledButton(
             key: const Key('save-piece'),
             onPressed: _saving ? null : _save,
-            child: Text(_saving ? text.saving : text.savePiece),
+            child: Text(
+              _saving
+                  ? text.saving
+                  : _quantity > 1
+                  ? text.savePieces(_quantity)
+                  : text.savePiece,
+            ),
           ),
         ),
       ),
+    );
+  }
+}
+
+class _QuantityStepper extends StatefulWidget {
+  const _QuantityStepper({
+    required this.quantity,
+    required this.enabled,
+    required this.label,
+    required this.onChanged,
+  });
+
+  final int quantity;
+  final bool enabled;
+  final String label;
+  final ValueChanged<int> onChanged;
+
+  @override
+  State<_QuantityStepper> createState() => _QuantityStepperState();
+}
+
+class _QuantityStepperState extends State<_QuantityStepper> {
+  late final TextEditingController _text;
+
+  @override
+  void initState() {
+    super.initState();
+    _text = TextEditingController(text: '${widget.quantity}');
+  }
+
+  @override
+  void didUpdateWidget(covariant _QuantityStepper old) {
+    super.didUpdateWidget(old);
+    if (int.tryParse(_text.text.trim()) != widget.quantity) {
+      final next = '${widget.quantity}';
+      _text.value = TextEditingValue(
+        text: next,
+        selection: TextSelection.collapsed(offset: next.length),
+      );
+    }
+  }
+
+  @override
+  void dispose() {
+    _text.dispose();
+    super.dispose();
+  }
+
+  void _typed(String raw) {
+    final parsed = int.tryParse(raw.trim());
+    if (parsed == null) return;
+    final next = parsed.clamp(1, maxPieceQuantity);
+    if (next != parsed) {
+      final shown = '$next';
+      _text.value = TextEditingValue(
+        text: shown,
+        selection: TextSelection.collapsed(offset: shown.length),
+      );
+    }
+    if (next != widget.quantity) widget.onChanged(next);
+  }
+
+  void _finish() {
+    final parsed = int.tryParse(_text.text.trim());
+    final next = (parsed ?? widget.quantity).clamp(1, maxPieceQuantity);
+    final shown = '$next';
+    if (_text.text != shown) {
+      _text.value = TextEditingValue(
+        text: shown,
+        selection: TextSelection.collapsed(offset: shown.length),
+      );
+    }
+    if (next != widget.quantity) widget.onChanged(next);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Expanded(
+          child: Text(
+            widget.label,
+            style: Theme.of(context).textTheme.titleMedium,
+          ),
+        ),
+        IconButton(
+          key: const Key('piece-quantity-dec'),
+          onPressed: widget.enabled && widget.quantity > 1
+              ? () => widget.onChanged(widget.quantity - 1)
+              : null,
+          icon: const Icon(Icons.remove),
+        ),
+        SizedBox(
+          width: 72,
+          child: TextField(
+            key: const Key('piece-quantity'),
+            controller: _text,
+            enabled: widget.enabled,
+            keyboardType: TextInputType.number,
+            textAlign: TextAlign.center,
+            textInputAction: TextInputAction.done,
+            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+            decoration: const InputDecoration(
+              isDense: true,
+              contentPadding: EdgeInsets.symmetric(vertical: 8),
+            ),
+            onChanged: _typed,
+            onEditingComplete: _finish,
+            onTapOutside: (_) => _finish(),
+          ),
+        ),
+        IconButton(
+          key: const Key('piece-quantity-inc'),
+          onPressed: widget.enabled && widget.quantity < maxPieceQuantity
+              ? () => widget.onChanged(widget.quantity + 1)
+              : null,
+          icon: const Icon(Icons.add),
+        ),
+      ],
     );
   }
 }

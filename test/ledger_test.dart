@@ -69,12 +69,23 @@ void main() {
         soldCents: 9000,
       ),
       _piece(id: 'stock'),
+      _piece(id: 'arrived', createdOn: const Day(2026, 11, 20)),
+      _piece(
+        id: 'silver',
+        metal: Metal.silver,
+        createdOn: const Day(2026, 11, 20),
+      ),
     ];
     final profit = PeriodProfit(period: week, items: items);
     expect(profit.pieceCount, 2);
     expect(profit.revenueCents, 20000);
     expect(profit.costCents, 13000);
     expect(profit.profitCents, 7000);
+    expect(profit.soldGrams, 8.4);
+    expect(profit.goldAddedGrams, 4.2);
+    expect(profit.goldSoldGrams, 8.4);
+    expect(profit.goldAdded.map((item) => item.id), ['arrived']);
+    expect(profit.goldSold.map((item) => item.id), ['loss', 'sold']);
     expect(profit.sales.map((item) => item.id), ['loss', 'sold']);
   });
 
@@ -91,6 +102,9 @@ void main() {
     expect(stockView(items, sold: false).map((item) => item.id), ['ring']);
     expect(stockView(items, sold: true).map((item) => item.id), ['chain']);
     expect(stockView(items, sold: false, query: 'sapphire').single.id, 'ring');
+    expect(stockView(items, sold: false, kind: PieceKind.necklace), isEmpty);
+    expect(stockView(items, sold: false, grams: '4,2').single.id, 'ring');
+    expect(stockView(items, sold: false, grams: '9'), isEmpty);
   });
 
   test('a piece survives a json round trip', () {
@@ -168,6 +182,27 @@ void main() {
     expect(error, BookNotice.unsaved);
     expect(controller.items, isEmpty);
   });
+
+  test('editing a quantity drops extras and adds pieces', () async {
+    final inventory = MemoryInventory();
+    final controller = _controller(inventory);
+    await controller.bootstrap();
+    expect(await controller.saveItem(_piece(id: 'ring'), quantity: 3), isNull);
+    expect(controller.items, hasLength(3));
+    expect(controller.items.first.groupId, isNotEmpty);
+    expect(controller.items.map((item) => item.groupId).toSet(), hasLength(1));
+
+    final edited = controller.find('ring')!;
+    expect(await controller.saveItem(edited, quantity: 1), isNull);
+    expect(controller.items.map((item) => item.id), ['ring']);
+
+    expect(
+      await controller.saveItem(controller.find('ring')!, quantity: 4),
+      isNull,
+    );
+    expect(controller.items, hasLength(4));
+    expect(controller.items.where((item) => item.id == 'ring'), hasLength(1));
+  });
 }
 
 KaratController _controller(InventoryRepository inventory) {
@@ -198,6 +233,8 @@ JewelleryItem _piece({
   required String id,
   String name = 'Oval sapphire ring',
   int costCents = 5000,
+  Metal metal = Metal.gold,
+  Day createdOn = const Day(2026, 11, 2),
   Day? soldOn,
   int? soldCents,
 }) {
@@ -205,12 +242,12 @@ JewelleryItem _piece({
     id: id,
     name: name,
     kind: PieceKind.ring,
-    metal: Metal.gold,
+    metal: metal,
     purity: '18K',
     weightGrams: 4.2,
     costCents: costCents,
     notes: '',
-    createdOn: const Day(2026, 11, 2),
+    createdOn: createdOn,
     soldOn: soldOn,
     soldCents: soldCents,
   );

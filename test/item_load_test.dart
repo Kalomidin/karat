@@ -45,6 +45,33 @@ void main() {
     expect(body['name'], 'Local ring');
     expect(body['currencyId'], dollarCurrencyId);
     expect(body['cost'], 10);
+    expect(body['quantity'], 1);
+  });
+
+  test('creating several pieces stores each server row', () async {
+    final inventory = MemoryInventory();
+    final server = await _recordingServer();
+    addTearDown(server.close);
+
+    final controller = _controller(inventory, server.server);
+    await controller.bootstrap();
+    final saved = await controller.saveItem(
+      _localPiece('phone-only'),
+      quantity: 3,
+    );
+
+    expect(saved, isNull);
+    expect(controller.items.map((item) => item.id).toSet(), {
+      'server-0',
+      'server-1',
+      'server-2',
+    });
+    expect(inventory.books['ada'], hasLength(3));
+    final post = server.requests.singleWhere((call) => call.method == 'POST');
+    final body = jsonDecode(post.body) as Map<String, Object?>;
+    expect(body['quantity'], 3);
+    expect(body['weightGrams'], 3);
+    expect(body['cost'], 10);
   });
 
   test('marking sold stores the sale on the server', () async {
@@ -118,6 +145,41 @@ void main() {
     );
   });
 
+  test('editing a quantity deletes extras and adds pieces', () async {
+    final inventory = MemoryInventory()
+      ..books['ada'] = [_localPiece('a'), _localPiece('b'), _localPiece('c')];
+    final server = await _editServer();
+    addTearDown(server.close);
+
+    final controller = _controller(inventory, server.server);
+    await controller.bootstrap();
+    final shrunk = await controller.saveItem(
+      controller.find('a')!,
+      quantity: 1,
+    );
+
+    expect(shrunk, isNull);
+    expect(controller.items.map((item) => item.id), ['a']);
+    expect(
+      server.requests
+          .where((call) => call.method == 'DELETE')
+          .map((call) => call.path)
+          .toList(),
+      ['/item/b', '/item/c'],
+    );
+
+    final grown = await controller.saveItem(controller.find('a')!, quantity: 3);
+
+    expect(grown, isNull);
+    expect(controller.items.map((item) => item.id).toSet(), {
+      'a',
+      'extra-0',
+      'extra-1',
+    });
+    final post = server.requests.lastWhere((call) => call.method == 'POST');
+    expect((jsonDecode(post.body) as Map)['quantity'], 2);
+  });
+
   test('deleting a piece removes it on the server', () async {
     final inventory = MemoryInventory();
     inventory.books['ada'] = [_localPiece('ring')];
@@ -186,15 +248,60 @@ Future<_RecordingServer> _recordingServer() async {
     final body = await utf8.decoder.bind(request).join();
     recording.requests.add(_Call(request.method, request.uri.path, body));
     final created = request.method == 'POST';
+    var count = 1;
+    if (created && body.isNotEmpty) {
+      final decoded = jsonDecode(body);
+      if (decoded is Map && decoded['quantity'] is int) {
+        count = decoded['quantity'] as int;
+      }
+    }
+    final createdRows = [
+      for (var i = 0; i < count; i++)
+        _remoteJson(count == 1 ? 'server-id' : 'server-$i', name: 'Local ring'),
+    ];
     request.response
       ..statusCode = 200
       ..headers.contentType = ContentType.json
-      ..write(
-        jsonEncode(
-          created ? _remoteJson('server-id') : <Map<String, Object?>>[],
-        ),
-      );
+      ..write(jsonEncode(created ? createdRows : <Map<String, Object?>>[]));
     await request.response.close();
+  });
+  return recording;
+}
+
+Future<_RecordingServer> _editServer() async {
+  final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+  final recording = _RecordingServer(server);
+  server.listen((request) async {
+    final body = await utf8.decoder.bind(request).join();
+    recording.requests.add(_Call(request.method, request.uri.path, body));
+    final response = request.response;
+    response.headers.contentType = ContentType.json;
+    if (request.method == 'GET') {
+      response.statusCode = 500;
+      response.write(jsonEncode({'error': 'down'}));
+    } else if (request.method == 'PUT') {
+      response.statusCode = 200;
+      final id = request.uri.pathSegments.last;
+      response.write(jsonEncode(_remoteJson(id, name: 'Local ring')));
+    } else if (request.method == 'DELETE') {
+      response.statusCode = 200;
+      response.write(jsonEncode({'ok': true}));
+    } else if (request.method == 'POST') {
+      final decoded = jsonDecode(body);
+      final count = decoded is Map && decoded['quantity'] is int
+          ? decoded['quantity'] as int
+          : 1;
+      response.statusCode = 200;
+      response.write(
+        jsonEncode([
+          for (var i = 0; i < count; i++)
+            _remoteJson('extra-$i', name: 'Local ring'),
+        ]),
+      );
+    } else {
+      response.statusCode = 404;
+    }
+    await response.close();
   });
   return recording;
 }

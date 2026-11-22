@@ -58,6 +58,11 @@ class AppText {
   String get inStock => ru ? 'В наличии' : 'In stock';
   String get sold => ru ? 'Продано' : 'Sold';
   String get searchPieces => ru ? 'Поиск изделий' : 'Search pieces';
+  String get pieceType => ru ? 'Тип' : 'Type';
+  String get anyType => ru ? 'Любой' : 'Any';
+  String get filters => ru ? 'Фильтры' : 'Filters';
+  String get clearFilters => ru ? 'Сбросить' : 'Clear';
+  String get applyFilters => ru ? 'Показать' : 'Apply';
   String get nothingInStock =>
       ru ? 'В наличии пока ничего нет.' : 'Nothing in stock yet.';
   String get noSoldPieces =>
@@ -66,7 +71,6 @@ class AppText {
       ru ? 'Ничего не найдено.' : 'No pieces match that search.';
   String get pieceSection => ru ? 'Изделие' : 'Piece';
   String get name => ru ? 'Название' : 'Name';
-  String get metal => ru ? 'Металл' : 'Metal';
   String get purity => ru ? 'Проба' : 'Purity';
   String get money => ru ? 'Деньги' : 'Money';
   String currencyName(String code) {
@@ -79,7 +83,10 @@ class AppText {
   }
 
   String get weight => ru ? 'Вес' : 'Weight';
+  String get weightEach => ru ? 'Вес каждой' : 'Weight each';
   String get cost => ru ? 'Себестоимость' : 'Cost';
+  String get costEach => ru ? 'Себестоимость каждой' : 'Cost each';
+  String get quantity => ru ? 'Количество' : 'Quantity';
   String get notes => ru ? 'Заметки' : 'Notes';
   String get addPhoto => ru ? 'Добавить фото' : 'Add photo';
   String get changePhoto => ru ? 'Сменить фото' : 'Change photo';
@@ -89,6 +96,9 @@ class AppText {
       ? 'Фото не загрузилось. Проверьте соединение и попробуйте снова.'
       : 'The photo did not upload. Check the connection and try again.';
   String get savePiece => ru ? 'Сохранить' : 'Save piece';
+  String savePieces(int count) =>
+      ru ? 'Сохранить $count шт.' : 'Save $count pieces';
+  String inStockCount(int count) => ru ? '$count в наличии' : '$count in stock';
   String get saving => ru ? 'Сохранение' : 'Saving';
   String get nameRequired =>
       ru ? 'Укажите название.' : 'Give the piece a name.';
@@ -106,15 +116,27 @@ class AppText {
   String soldLine(String date, String price) =>
       ru ? 'Продано $date · $price' : 'Sold $date · $price';
   String costLine(String price) => ru ? 'Себестоимость $price' : 'Cost $price';
+  String costEachLine(String price) =>
+      ru ? 'Себестоимость $price за шт.' : 'Cost $price each';
   String profitLine(String amount) => ru ? 'Прибыль $amount' : 'Profit $amount';
   String get profit => ru ? 'Прибыль' : 'Profit';
+  String get spent => ru ? 'Потрачено' : 'Spent';
+  String get earned => ru ? 'Получено' : 'Earned';
   String get recordSale => ru ? 'Записать продажу' : 'Record sale';
   String get thisWeek => ru ? 'Эта неделя' : 'This week';
   String get mondayToSunday => ru ? 'Понедельник–воскресенье' : 'Monday–Sunday';
   String get previousPeriod => ru ? 'Предыдущий период' : 'Previous period';
   String get nextPeriod => ru ? 'Следующий период' : 'Next period';
-  String get noSalesInPeriod =>
-      ru ? 'В этом периоде продаж нет.' : 'No sales in this period.';
+  String get noMovesInPeriod => ru
+      ? 'В этом периоде ничего не поступало и не уходило.'
+      : 'Nothing came in or left in this period.';
+  String goldMovesEmpty(bool added) => added
+      ? (ru
+            ? 'В этом периоде золото не поступало.'
+            : 'No gold came in during this period.')
+      : (ru
+            ? 'В этом периоде золото не уходило.'
+            : 'No gold left during this period.');
   String get revenue => ru ? 'Выручка' : 'Revenue';
   String get pieces => ru ? 'Изделия' : 'Pieces';
   String get returnToStockTitle =>
@@ -148,16 +170,6 @@ class AppText {
       PieceKind.pendant => 'Подвеска',
       PieceKind.brooch => 'Брошь',
       PieceKind.other => 'Другое',
-    };
-  }
-
-  String metalName(Metal metal) {
-    if (!ru) return metal.label;
-    return switch (metal) {
-      Metal.gold => 'Золото',
-      Metal.silver => 'Серебро',
-      Metal.platinum => 'Платина',
-      Metal.mixed => 'Смешанный',
     };
   }
 

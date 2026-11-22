@@ -7,17 +7,16 @@ The phone talks to [karat-server](https://github.com/kal0mdin/karat-server) for 
 ## What you can do
 
 - Sign in with Google. The book is kept per Google account.
-- Keep a stock list. Switch between pieces still in the case and pieces already sold. Search by name.
-- Add or edit a piece: kind (ring, necklace, bracelet, earrings, pendant, brooch, other), metal (gold, silver, platinum, mixed), purity, weight, cost, notes, and a photo.
+- Keep a stock list. Switch between pieces still in the case and pieces already sold. Search by name, then narrow by type and grams.
+- Add or edit a piece: kind (ring, necklace, bracelet, earrings, pendant, brooch, other), purity (750, 585, or 375), weight, cost, notes, and a photo. A quantity up to 200 saves that many identical pieces. The stock list shows a shared group as one card with a count. A piece with no group stays on its own card. Editing that count adds pieces, or marks the extras deleted. Pieces from one save share a group, and Gains shows that batch as one added row.
 - Pick the shop currency in the header. A new piece starts in that currency. An existing piece keeps its own. Dollar, ruble, and Tajik somoni come from the server. Amounts are whole units (`$50`, `₽50`, `TJS50`).
-- Metal and purity are chosen on the phone: gold, silver, platinum, or mixed, and stamps 999, 916, 750, 585, or 375. The server stores the text.
-- Open Gains. Choose a day, a week, a month, or your own dates. Each currency shows its gain. Tap one to see that currency’s revenue, cost, profit, and the sales in the period.
+- Open Gains. Choose a day, a week, a month, or your own dates. Each currency shows its gain. Tap one to see that currency’s revenue, cost, profit, and the sales in the period. The same period shows gold grams added and gold grams sold.
 - Open the account to set the shop name. Name and email come from Google.
 - Switch language in the header. The choice stays on the phone, next to the currency choice.
 
 ## What stays on the phone
 
-Creating, editing, selling, returning, and deleting a piece are saved on karat-server first. The phone keeps the change only after the server accepts it. Opening the app replaces the local list with the server list.
+Creating, editing, selling, returning, and deleting a piece are saved on karat-server first. The phone keeps the change only after the server accepts it. Opening the app replaces the local list with the server list. A deleted piece is marked deleted and no longer comes back in the list.
 
 Photos are uploaded through karat-server. The phone keeps a local copy so the picture still shows after the read link expires. The shop name and the header currency stay on the phone.
 
