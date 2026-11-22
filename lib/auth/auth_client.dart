@@ -5,16 +5,24 @@ class ShopUser {
     required this.email,
     this.name,
     this.photoUrl,
+    this.shopName = '',
   });
 
   final String id;
   final String email;
   final String? name;
   final String? photoUrl;
+  final String shopName;
 
   String get label {
     final trimmed = name?.trim() ?? '';
     return trimmed.isEmpty ? email : trimmed;
+  }
+
+  /// Shop name when the account has one, otherwise the person's name or email.
+  String get headerTitle {
+    final shop = shopName.trim();
+    return shop.isEmpty ? label : shop;
   }
 }
 
@@ -63,6 +71,9 @@ abstract class AuthClient {
   Future<ShopUser?> restore();
 
   Future<ShopUser> signIn();
+
+  /// The Google ID token for the signed-in account, when one is available.
+  Future<String?> idToken();
 
   Future<void> signOut();
 

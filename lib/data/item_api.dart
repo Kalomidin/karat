@@ -1,0 +1,76 @@
+import 'dart:convert';
+import 'dart:io';
+
+import 'package:karat/config/api.dart';
+import 'package:karat/domain/jewellery_item.dart';
+
+class ItemApiException implements Exception {
+  const ItemApiException();
+}
+
+class ItemApi {
+  ItemApi({HttpClient? http, String? apiBase})
+    : _http = http ?? HttpClient(),
+      apiBase = _trim(apiBase ?? karatApiBase()) {
+    _http.connectionTimeout = const Duration(seconds: 5);
+  }
+
+  final HttpClient _http;
+  final String apiBase;
+
+  Future<List<JewelleryItem>> list(String idToken) async {
+    final request = await _http.getUrl(Uri.parse('$apiBase/item'));
+    request.headers.set(HttpHeaders.authorizationHeader, 'Bearer $idToken');
+    final response = await request.close().timeout(const Duration(seconds: 8));
+    final body = await response.transform(utf8.decoder).join();
+    if (response.statusCode != 200) throw const ItemApiException();
+    final decoded = jsonDecode(body);
+    if (decoded is! List) throw const ItemApiException();
+    return decoded.map((entry) {
+      if (entry is! Map) throw const ItemApiException();
+      return JewelleryItem.fromJson(entry.cast<String, Object?>());
+    }).toList();
+  }
+
+  Future<JewelleryItem> create(String idToken, JewelleryItem item) {
+    return _write(idToken, 'POST', '$apiBase/item', item);
+  }
+
+  Future<JewelleryItem> update(String idToken, JewelleryItem item) {
+    return _write(idToken, 'PUT', '$apiBase/item/${item.id}', item);
+  }
+
+  Future<JewelleryItem> _write(
+    String idToken,
+    String method,
+    String url,
+    JewelleryItem item,
+  ) async {
+    final request = await _http.openUrl(method, Uri.parse(url));
+    request.headers.set(HttpHeaders.authorizationHeader, 'Bearer $idToken');
+    request.headers.set(HttpHeaders.contentTypeHeader, 'application/json');
+    request.add(utf8.encode(jsonEncode(_body(item))));
+    final response = await request.close().timeout(const Duration(seconds: 8));
+    final raw = await response.transform(utf8.decoder).join();
+    if (response.statusCode != 200) throw const ItemApiException();
+    final decoded = jsonDecode(raw);
+    if (decoded is! Map) throw const ItemApiException();
+    return JewelleryItem.fromJson(decoded.cast<String, Object?>());
+  }
+}
+
+Map<String, Object?> _body(JewelleryItem item) {
+  return {
+    'name': item.name,
+    'kind': item.kind.name,
+    'metal': item.metal.name,
+    'purity': item.purity,
+    'weightGrams': item.weightGrams,
+    'currencyId': item.currencyId,
+    'cost': item.costCents ~/ 100,
+    'notes': item.notes,
+    if (item.imageKey.isNotEmpty) 'imageKey': item.imageKey,
+  };
+}
+
+String _trim(String value) => value.replaceAll(RegExp(r'/+$'), '');

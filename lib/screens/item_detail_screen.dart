@@ -5,6 +5,7 @@ import 'package:karat/screens/item_form_screen.dart';
 import 'package:karat/screens/mark_sold_sheet.dart';
 import 'package:karat/state/karat_controller.dart';
 import 'package:karat/theme/karat_theme.dart';
+import 'package:karat/widgets/piece_photo.dart';
 import 'package:karat/widgets/shop_width.dart';
 import 'package:material_ui/material_ui.dart';
 
@@ -129,6 +130,10 @@ class ItemDetailScreen extends StatelessWidget {
             child: ListView(
               padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
               children: [
+                if (item.imageUrl.isNotEmpty) ...[
+                  PiecePhoto(imageUrl: item.imageUrl, height: 240),
+                  const SizedBox(height: 16),
+                ],
                 Text(
                   '${text.kind(item.kind)} · ${text.metalName(item.metal)} · ${item.purity}',
                   style: Theme.of(context).textTheme.titleMedium
@@ -139,9 +144,13 @@ class ItemDetailScreen extends StatelessWidget {
                   label: text.weight,
                   value: formatGrams(item.weightGrams, languageCode: language),
                 ),
-                _Fact(label: text.cost, value: formatCents(item.costCents)),
-                if (item.stockNumber.isNotEmpty)
-                  _Fact(label: text.stockNumber, value: item.stockNumber),
+                _Fact(
+                  label: text.cost,
+                  value: formatCents(
+                    item.costCents,
+                    currencyId: item.currencyId,
+                  ),
+                ),
                 _Fact(
                   label: text.registered,
                   value: formatDay(item.createdOn, languageCode: language),
@@ -153,11 +162,18 @@ class ItemDetailScreen extends StatelessWidget {
                   ),
                   _Fact(
                     label: text.salePrice,
-                    value: formatCents(item.soldCents!),
+                    value: formatCents(
+                      item.soldCents!,
+                      currencyId: item.currencyId,
+                    ),
                   ),
                   _Fact(
                     label: text.profit,
-                    value: formatCents(profit ?? 0, signed: true),
+                    value: formatCents(
+                      profit ?? 0,
+                      signed: true,
+                      currencyId: item.currencyId,
+                    ),
                     valueColor: (profit ?? 0) < 0
                         ? KaratColors.loss
                         : KaratColors.goldDeep,

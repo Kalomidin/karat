@@ -45,6 +45,53 @@ class WeekProfit {
   int get profitCents => revenueCents - costCents;
 
   int get pieceCount => sales.length;
+
+  CurrencyTotal totalFor(String currencyId) {
+    for (final total in totals) {
+      if (total.currencyId == currencyId) return total;
+    }
+    return CurrencyTotal(
+      currencyId: currencyId,
+      revenueCents: 0,
+      costCents: 0,
+      profitCents: 0,
+    );
+  }
+
+  List<CurrencyTotal> get totals {
+    final order = <String>[];
+    final revenue = <String, int>{};
+    final cost = <String, int>{};
+    for (final item in sales) {
+      final id = item.currencyId;
+      if (!revenue.containsKey(id)) order.add(id);
+      revenue[id] = (revenue[id] ?? 0) + (item.soldCents ?? 0);
+      cost[id] = (cost[id] ?? 0) + item.costCents;
+    }
+    return [
+      for (final id in order)
+        CurrencyTotal(
+          currencyId: id,
+          revenueCents: revenue[id]!,
+          costCents: cost[id]!,
+          profitCents: revenue[id]! - cost[id]!,
+        ),
+    ];
+  }
+}
+
+class CurrencyTotal {
+  const CurrencyTotal({
+    required this.currencyId,
+    required this.revenueCents,
+    required this.costCents,
+    required this.profitCents,
+  });
+
+  final String currencyId;
+  final int revenueCents;
+  final int costCents;
+  final int profitCents;
 }
 
 List<JewelleryItem> _salesIn(Week week, List<JewelleryItem> items) {

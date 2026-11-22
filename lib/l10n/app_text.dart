@@ -20,6 +20,9 @@ class AppText {
   bool get ru => locale.languageCode == 'ru';
 
   String get languageLabel => ru ? 'Язык' : 'Language';
+  String get english => 'English';
+  String get russian => 'Русский';
+  String get currencyLabel => ru ? 'Валюта' : 'Currency';
   String get signInTitle => ru
       ? 'Книга учёта изделий на верстаке и в витрине.'
       : 'A stock book for the pieces on the bench and in the case.';
@@ -34,6 +37,11 @@ class AppText {
       : 'The stock book stays on this device for this Google account.';
   String get stay => ru ? 'Остаться' : 'Stay';
   String get signOut => ru ? 'Выйти' : 'Sign out';
+  String get account => ru ? 'Аккаунт' : 'Account';
+  String get accountName => ru ? 'Имя' : 'Name';
+  String get email => ru ? 'Почта' : 'Email';
+  String get shopName => ru ? 'Название мастерской' : 'Shop name';
+  String get save => ru ? 'Сохранить' : 'Save';
   String get newPiece => ru ? 'Новое изделие' : 'New piece';
   String get editPiece => ru ? 'Изменить изделие' : 'Edit piece';
   String get stock => ru ? 'Наличие' : 'Stock';
@@ -49,13 +57,28 @@ class AppText {
       ru ? 'Ничего не найдено.' : 'No pieces match that search.';
   String get pieceSection => ru ? 'Изделие' : 'Piece';
   String get name => ru ? 'Название' : 'Name';
-  String get stockNumber => ru ? 'Артикул' : 'Stock number';
   String get metal => ru ? 'Металл' : 'Metal';
   String get purity => ru ? 'Проба' : 'Purity';
   String get money => ru ? 'Деньги' : 'Money';
+  String currencyName(String code) {
+    return switch (code) {
+      'USD' => ru ? 'Доллар' : 'Dollar',
+      'RUB' => ru ? 'Рубль' : 'Ruble',
+      'TJS' => ru ? 'Сомони' : 'Somoni',
+      _ => code,
+    };
+  }
+
   String get weight => ru ? 'Вес' : 'Weight';
   String get cost => ru ? 'Себестоимость' : 'Cost';
   String get notes => ru ? 'Заметки' : 'Notes';
+  String get addPhoto => ru ? 'Добавить фото' : 'Add photo';
+  String get changePhoto => ru ? 'Сменить фото' : 'Change photo';
+  String get photoLibrary => ru ? 'Галерея' : 'Photo library';
+  String get camera => ru ? 'Камера' : 'Camera';
+  String get photoFailed => ru
+      ? 'Фото не загрузилось. Проверьте соединение и попробуйте снова.'
+      : 'The photo did not upload. Check the connection and try again.';
   String get savePiece => ru ? 'Сохранить' : 'Save piece';
   String get saving => ru ? 'Сохранение' : 'Saving';
   String get nameRequired =>

@@ -10,6 +10,7 @@ class GoogleAuthClient implements AuthClient {
       StreamController<AuthEvent>.broadcast();
   StreamSubscription<GoogleSignInAuthenticationEvent>? _googleSub;
   bool _ready = false;
+  GoogleSignInAccount? _account;
 
   @override
   bool get needsConfiguration => GoogleAuthConfig.needsClientId;
@@ -59,7 +60,15 @@ class GoogleAuthClient implements AuthClient {
   }
 
   @override
+  Future<String?> idToken() async {
+    final account = _account;
+    if (account == null) return null;
+    return account.authentication.idToken;
+  }
+
+  @override
   Future<void> signOut() {
+    _account = null;
     return GoogleSignIn.instance.signOut();
   }
 
@@ -87,6 +96,7 @@ class GoogleAuthClient implements AuthClient {
   }
 
   ShopUser _userFrom(GoogleSignInAccount account) {
+    _account = account;
     return ShopUser(
       id: account.id,
       email: account.email,

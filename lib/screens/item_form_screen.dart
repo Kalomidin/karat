@@ -1,17 +1,31 @@
+import 'dart:typed_data';
+
+import 'package:image_picker/image_picker.dart';
+import 'package:karat/domain/currency.dart';
+import 'package:karat/data/piece_photo_file.dart';
+import 'package:karat/widgets/currency_menu.dart';
+import 'package:karat/data/piece_photo_upload.dart';
 import 'package:karat/domain/jewellery_item.dart';
 import 'package:karat/l10n/app_text.dart';
 import 'package:karat/state/karat_controller.dart';
 import 'package:karat/theme/karat_theme.dart';
+import 'package:karat/widgets/piece_photo.dart';
 import 'package:karat/widgets/shop_width.dart';
 import 'package:material_ui/material_ui.dart';
 
 const _purities = ['24K', '22K', '18K', '14K', '925', '999'];
 
 class ItemFormScreen extends StatefulWidget {
-  const ItemFormScreen({super.key, required this.controller, this.existing});
+  const ItemFormScreen({
+    super.key,
+    required this.controller,
+    this.existing,
+    this.uploader,
+  });
 
   final KaratController controller;
   final JewelleryItem? existing;
+  final PiecePhotoUploader? uploader;
 
   @override
   State<ItemFormScreen> createState() => _ItemFormScreenState();
@@ -19,13 +33,17 @@ class ItemFormScreen extends StatefulWidget {
 
 class _ItemFormScreenState extends State<ItemFormScreen> {
   late final TextEditingController _name;
-  late final TextEditingController _stockNumber;
   late final TextEditingController _purity;
   late final TextEditingController _weight;
   late final TextEditingController _cost;
   late final TextEditingController _notes;
   late PieceKind _kind;
   late Metal _metal;
+  late String _currencyId;
+  late String _imageUrl;
+  late String _imageKey;
+  Uint8List? _pendingBytes;
+  var _pendingType = 'image/jpeg';
   var _attempted = false;
   var _saving = false;
 
@@ -36,21 +54,18 @@ class _ItemFormScreenState extends State<ItemFormScreen> {
         ? ItemDraft.initial()
         : ItemDraft.fromItem(widget.existing!);
     _name = TextEditingController(text: draft.name);
-    _stockNumber = TextEditingController(text: draft.stockNumber);
     _purity = TextEditingController(text: draft.purity);
     _weight = TextEditingController(text: draft.weightText);
     _cost = TextEditingController(text: draft.costText);
     _notes = TextEditingController(text: draft.notes);
     _kind = draft.kind;
     _metal = draft.metal;
-    for (final controller in [
-      _name,
-      _stockNumber,
-      _purity,
-      _weight,
-      _cost,
-      _notes,
-    ]) {
+    _currencyId = widget.existing == null
+        ? widget.controller.shopCurrencyId
+        : draft.currencyId;
+    _imageUrl = widget.existing?.imageUrl ?? '';
+    _imageKey = widget.existing?.imageKey ?? '';
+    for (final controller in [_name, _purity, _weight, _cost, _notes]) {
       controller.addListener(_rebuild);
     }
   }
@@ -61,14 +76,7 @@ class _ItemFormScreenState extends State<ItemFormScreen> {
 
   @override
   void dispose() {
-    for (final controller in [
-      _name,
-      _stockNumber,
-      _purity,
-      _weight,
-      _cost,
-      _notes,
-    ]) {
+    for (final controller in [_name, _purity, _weight, _cost, _notes]) {
       controller
         ..removeListener(_rebuild)
         ..dispose();
@@ -79,14 +87,67 @@ class _ItemFormScreenState extends State<ItemFormScreen> {
   ItemDraft get _draft {
     return ItemDraft(
       name: _name.text,
-      stockNumber: _stockNumber.text,
       kind: _kind,
       metal: _metal,
       purity: _purity.text,
       weightText: _weight.text,
       costText: _cost.text,
       notes: _notes.text,
+      currencyId: _currencyId,
     );
+  }
+
+  Future<void> _pickPhoto() async {
+    final text = AppText.of(context);
+    final source = await showModalBottomSheet<ImageSource>(
+      context: context,
+      builder: (context) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                key: const Key('photo-library'),
+                title: Text(text.photoLibrary),
+                onTap: () => Navigator.pop(context, ImageSource.gallery),
+              ),
+              ListTile(
+                key: const Key('photo-camera'),
+                title: Text(text.camera),
+                onTap: () => Navigator.pop(context, ImageSource.camera),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+    if (source == null) return;
+    try {
+      final file = await ImagePicker().pickImage(
+        source: source,
+        maxWidth: 1600,
+        maxHeight: 1600,
+        imageQuality: 80,
+      );
+      if (file == null || !mounted) return;
+      final bytes = await file.readAsBytes();
+      if (!mounted) return;
+      if (bytes.length > 8 * 1024 * 1024) {
+        _photoFailed();
+        return;
+      }
+      setState(() {
+        _pendingBytes = bytes;
+        _pendingType = contentTypeForPhoto(file.name, file.mimeType);
+      });
+    } catch (_) {
+      if (mounted) _photoFailed();
+    }
+  }
+
+  void _photoFailed() {
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(AppText.of(context).photoFailed)));
   }
 
   Future<void> _save() async {
@@ -95,9 +156,39 @@ class _ItemFormScreenState extends State<ItemFormScreen> {
     if (!draft.isValid || _saving) return;
     setState(() => _saving = true);
     final existing = widget.existing;
+    final id = existing?.id ?? newItemId();
+    var imageUrl = _imageUrl;
+    var imageKey = _imageKey;
+    final pending = _pendingBytes;
+    if (pending != null) {
+      try {
+        final token = await widget.controller.idToken();
+        if (token == null || token.isEmpty) {
+          throw const PiecePhotoUploadException();
+        }
+        final uploaded = await (widget.uploader ?? PiecePhotoUploader()).upload(
+          idToken: token,
+          bytes: pending,
+          contentType: _pendingType,
+        );
+        imageKey = uploaded.imageKey;
+        imageUrl = await savePiecePhoto(
+          id,
+          pending,
+          extensionForPhoto(_pendingType),
+        );
+      } on PiecePhotoUploadException {
+        if (!mounted) return;
+        setState(() => _saving = false);
+        _photoFailed();
+        return;
+      }
+    }
     final item = draft.toItem(
-      id: existing?.id ?? newItemId(),
+      id: id,
       createdOn: existing?.createdOn ?? widget.controller.today,
+      imageUrl: imageUrl,
+      imageKey: imageKey,
     );
     final error = await widget.controller.saveItem(item);
     if (!mounted) return;
@@ -126,6 +217,24 @@ class _ItemFormScreenState extends State<ItemFormScreen> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               _SectionLabel(text.pieceSection),
+              PiecePhoto(
+                imageUrl: _imageUrl,
+                bytes: _pendingBytes,
+                height: _pendingBytes == null && _imageUrl.isEmpty ? 0 : 180,
+              ),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: TextButton.icon(
+                  key: const Key('add-photo'),
+                  onPressed: _saving ? null : _pickPhoto,
+                  icon: const Icon(Icons.add_a_photo_outlined),
+                  label: Text(
+                    _pendingBytes == null && _imageUrl.isEmpty
+                        ? text.addPhoto
+                        : text.changePhoto,
+                  ),
+                ),
+              ),
               TextField(
                 key: const Key('piece-name'),
                 controller: _name,
@@ -137,13 +246,6 @@ class _ItemFormScreenState extends State<ItemFormScreen> {
                     draft.nameError == null ? null : text.nameRequired,
                   ),
                 ),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: _stockNumber,
-                textCapitalization: TextCapitalization.characters,
-                textInputAction: TextInputAction.next,
-                decoration: InputDecoration(labelText: text.stockNumber),
               ),
               const SizedBox(height: 12),
               _ChoiceRow<PieceKind>(
@@ -185,6 +287,13 @@ class _ItemFormScreenState extends State<ItemFormScreen> {
                 ),
               ),
               _SectionLabel(text.money),
+              CurrencyMenuButton(
+                currencies: widget.controller.currencies,
+                selectedId: _currencyId,
+                compact: false,
+                onSelected: (id) => setState(() => _currencyId = id),
+              ),
+              const SizedBox(height: 12),
               TextField(
                 key: const Key('piece-weight'),
                 controller: _weight,
@@ -203,12 +312,10 @@ class _ItemFormScreenState extends State<ItemFormScreen> {
               TextField(
                 key: const Key('piece-cost'),
                 controller: _cost,
-                keyboardType: const TextInputType.numberWithOptions(
-                  decimal: true,
-                ),
+                keyboardType: TextInputType.number,
                 decoration: InputDecoration(
                   labelText: text.cost,
-                  prefixText: '\$ ',
+                  prefixText: '${currencySymbolFor(_currencyId)} ',
                   errorText: errorFor(
                     draft.costError == null ? null : text.costRequired,
                   ),

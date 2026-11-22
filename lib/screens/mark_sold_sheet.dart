@@ -1,3 +1,4 @@
+import 'package:karat/domain/currency.dart';
 import 'package:karat/domain/day.dart';
 import 'package:karat/domain/jewellery_item.dart';
 import 'package:karat/domain/money.dart';
@@ -108,11 +109,11 @@ class _MarkSoldSheetState extends State<MarkSoldSheet> {
             key: const Key('sale-price'),
             controller: _price,
             autofocus: true,
-            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            keyboardType: TextInputType.number,
             onChanged: (_) => setState(() {}),
             decoration: InputDecoration(
               labelText: text.salePrice,
-              prefixText: '\$ ',
+              prefixText: '${currencySymbolFor(widget.item.currencyId)} ',
               errorText: _attempted && cents == null
                   ? text.priceRequired
                   : null,
@@ -131,7 +132,13 @@ class _MarkSoldSheetState extends State<MarkSoldSheet> {
           if (preview != null) ...[
             const SizedBox(height: 12),
             Text(
-              text.profitLine(formatCents(preview, signed: true)),
+              text.profitLine(
+                formatCents(
+                  preview,
+                  signed: true,
+                  currencyId: widget.item.currencyId,
+                ),
+              ),
               style: Theme.of(context).textTheme.titleMedium?.copyWith(
                 color: preview < 0 ? KaratColors.loss : KaratColors.goldDeep,
               ),

@@ -17,9 +17,10 @@ class MemoryInventory implements InventoryRepository {
 }
 
 class FakeAuth implements AuthClient {
-  FakeAuth({this.restored});
+  FakeAuth({this.restored, this.token});
 
   ShopUser? restored;
+  String? token;
 
   @override
   bool get needsConfiguration => false;
@@ -39,6 +40,9 @@ class FakeAuth implements AuthClient {
     if (user == null) throw const AuthFailure(AuthProblem.failed);
     return user;
   }
+
+  @override
+  Future<String?> idToken() async => token;
 
   @override
   Future<void> signOut() async {}

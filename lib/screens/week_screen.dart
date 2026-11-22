@@ -1,3 +1,4 @@
+import 'package:karat/domain/currency.dart';
 import 'package:karat/domain/jewellery_item.dart';
 import 'package:karat/domain/week_profit.dart';
 import 'package:karat/format.dart';
@@ -17,6 +18,16 @@ class WeekScreen extends StatefulWidget {
 
 class _WeekScreenState extends State<WeekScreen> {
   late Week _week = Week.of(widget.controller.today);
+  String? _detailCurrencyId;
+
+  String _detailId(List<ShopCurrency> currencies) {
+    final chosen = _detailCurrencyId;
+    if (chosen != null && currencies.any((item) => item.id == chosen)) {
+      return chosen;
+    }
+    if (currencies.isNotEmpty) return currencies.first.id;
+    return dollarCurrencyId;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -25,15 +36,34 @@ class _WeekScreenState extends State<WeekScreen> {
       builder: (context, _) {
         final current = Week.of(widget.controller.today);
         final onCurrent = _week == current;
-        final profit = WeekProfit(week: _week, items: widget.controller.items);
+        final weekItems = widget.controller.items;
         final text = AppText.of(context);
         final language = Localizations.localeOf(context).languageCode;
+        final currencies = widget.controller.currencies.isEmpty
+            ? defaultCurrencies
+            : widget.controller.currencies;
+        final detailId = _detailId(currencies);
+        final gains = WeekProfit(week: _week, items: weekItems);
+        final profit = WeekProfit(
+          week: _week,
+          items: weekItems
+              .where((item) => item.currencyId == detailId)
+              .toList(),
+        );
         return ListView(
           padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
           children: [
+            _CurrencyGains(
+              currencies: currencies,
+              gains: gains,
+              selectedId: detailId,
+              onSelected: (id) => setState(() => _detailCurrencyId = id),
+            ),
+            const SizedBox(height: 12),
             _WeekCard(
               week: _week,
               profit: profit,
+              currencyId: detailId,
               isCurrent: onCurrent,
               text: text,
               languageCode: language,
@@ -71,10 +101,106 @@ class _WeekScreenState extends State<WeekScreen> {
   }
 }
 
+class _CurrencyGains extends StatelessWidget {
+  const _CurrencyGains({
+    required this.currencies,
+    required this.gains,
+    required this.selectedId,
+    required this.onSelected,
+  });
+
+  final List<ShopCurrency> currencies;
+  final WeekProfit gains;
+  final String selectedId;
+  final ValueChanged<String> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        for (var index = 0; index < currencies.length; index++) ...[
+          if (index > 0) const SizedBox(width: 8),
+          Expanded(
+            child: _GainTile(
+              currency: currencies[index],
+              profitCents: gains.totalFor(currencies[index].id).profitCents,
+              selected: currencies[index].id == selectedId,
+              onTap: () => onSelected(currencies[index].id),
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+class _GainTile extends StatelessWidget {
+  const _GainTile({
+    required this.currency,
+    required this.profitCents,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final ShopCurrency currency;
+  final int profitCents;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final amount = formatCents(
+      profitCents,
+      signed: true,
+      currencyId: currency.id,
+    );
+    return Material(
+      color: KaratColors.paper,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(
+          color: selected ? KaratColors.goldDeep : KaratColors.line,
+          width: selected ? 1.5 : 1,
+        ),
+      ),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(16),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                currency.code,
+                style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                  color: KaratColors.goldDeep,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 0.4,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                amount,
+                key: Key('week-gain-${currency.code}'),
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  color: profitCents < 0 ? KaratColors.loss : KaratColors.ink,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _WeekCard extends StatelessWidget {
   const _WeekCard({
     required this.week,
     required this.profit,
+    required this.currencyId,
     required this.isCurrent,
     required this.onPrevious,
     required this.onNext,
@@ -84,6 +210,7 @@ class _WeekCard extends StatelessWidget {
 
   final Week week;
   final WeekProfit profit;
+  final String currencyId;
   final bool isCurrent;
   final VoidCallback onPrevious;
   final VoidCallback? onNext;
@@ -157,7 +284,11 @@ class _WeekCard extends StatelessWidget {
                     fit: BoxFit.scaleDown,
                     alignment: Alignment.centerLeft,
                     child: Text(
-                      formatCents(profit.profitCents, signed: true),
+                      formatCents(
+                        profit.profitCents,
+                        signed: true,
+                        currencyId: currencyId,
+                      ),
                       key: const Key('week-profit'),
                       style: Theme.of(context).textTheme.displaySmall?.copyWith(
                         color: profit.profitCents == 0
@@ -176,11 +307,17 @@ class _WeekCard extends StatelessWidget {
                     children: [
                       _Stat(
                         label: text.revenue,
-                        value: formatCents(profit.revenueCents),
+                        value: formatCents(
+                          profit.revenueCents,
+                          currencyId: currencyId,
+                        ),
                       ),
                       _Stat(
                         label: text.cost,
-                        value: formatCents(profit.costCents),
+                        value: formatCents(
+                          profit.costCents,
+                          currencyId: currencyId,
+                        ),
                       ),
                       _Stat(label: text.pieces, value: '${profit.pieceCount}'),
                     ],
@@ -259,7 +396,7 @@ class _SaleRow extends StatelessWidget {
                   Text(
                     text.soldLine(
                       formatDay(item.soldOn!, languageCode: languageCode),
-                      formatCents(item.soldCents!),
+                      formatCents(item.soldCents!, currencyId: item.currencyId),
                     ),
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                       color: KaratColors.ink.withValues(alpha: 0.7),
@@ -269,7 +406,7 @@ class _SaleRow extends StatelessWidget {
               ),
             ),
             Text(
-              formatCents(profit, signed: true),
+              formatCents(profit, signed: true, currencyId: item.currencyId),
               style: TextStyle(
                 fontWeight: FontWeight.w600,
                 color: profit < 0 ? KaratColors.loss : KaratColors.goldDeep,

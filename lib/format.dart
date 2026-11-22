@@ -1,16 +1,17 @@
 import 'package:intl/intl.dart';
 import 'package:karat/config/shop.dart';
+import 'package:karat/domain/currency.dart';
 import 'package:karat/domain/day.dart';
 
-final NumberFormat _currency = NumberFormat.currency(
-  locale: Shop.locale,
-  name: Shop.currencyCode,
-  symbol: Shop.currencySymbol,
-  decimalDigits: 2,
-);
-
-String formatCents(int cents, {bool signed = false}) {
-  final body = _currency.format(cents.abs() / 100);
+String formatCents(int cents, {bool signed = false, String? currencyId}) {
+  final symbol = currencyId == null
+      ? Shop.currencySymbol
+      : currencySymbolFor(currencyId);
+  final body = NumberFormat.currency(
+    locale: Shop.locale,
+    symbol: symbol,
+    decimalDigits: 0,
+  ).format(cents.abs() / 100);
   if (cents < 0) return '-$body';
   if (signed && cents > 0) return '+$body';
   return body;

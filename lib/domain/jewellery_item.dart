@@ -1,5 +1,6 @@
 import 'dart:math';
 
+import 'package:karat/domain/currency.dart';
 import 'package:karat/domain/day.dart';
 import 'package:karat/domain/money.dart';
 
@@ -33,7 +34,6 @@ class JewelleryItem {
   const JewelleryItem({
     required this.id,
     required this.name,
-    required this.stockNumber,
     required this.kind,
     required this.metal,
     required this.purity,
@@ -41,6 +41,9 @@ class JewelleryItem {
     required this.costCents,
     required this.notes,
     required this.createdOn,
+    this.currencyId = dollarCurrencyId,
+    this.imageUrl = '',
+    this.imageKey = '',
     this.soldOn,
     this.soldCents,
   }) : assert(
@@ -50,13 +53,15 @@ class JewelleryItem {
 
   final String id;
   final String name;
-  final String stockNumber;
   final PieceKind kind;
   final Metal metal;
   final String purity;
   final double weightGrams;
+  final String currencyId;
   final int costCents;
   final String notes;
+  final String imageUrl;
+  final String imageKey;
   final Day createdOn;
   final Day? soldOn;
   final int? soldCents;
@@ -69,16 +74,38 @@ class JewelleryItem {
     return JewelleryItem(
       id: id,
       name: name,
-      stockNumber: stockNumber,
       kind: kind,
       metal: metal,
       purity: purity,
       weightGrams: weightGrams,
+      currencyId: currencyId,
       costCents: costCents,
       notes: notes,
+      imageUrl: imageUrl,
+      imageKey: imageKey,
       createdOn: createdOn,
       soldOn: on,
       soldCents: cents,
+    );
+  }
+
+  /// Keeps the photo file on this phone when the server assigns its own id.
+  JewelleryItem withServerIdentity(JewelleryItem server) {
+    return JewelleryItem(
+      id: server.id,
+      name: server.name,
+      kind: server.kind,
+      metal: server.metal,
+      purity: server.purity,
+      weightGrams: server.weightGrams,
+      currencyId: server.currencyId,
+      costCents: server.costCents,
+      notes: server.notes,
+      imageUrl: imageUrl.isNotEmpty ? imageUrl : server.imageUrl,
+      imageKey: server.imageKey.isNotEmpty ? server.imageKey : imageKey,
+      createdOn: server.createdOn,
+      soldOn: server.soldOn,
+      soldCents: server.soldCents,
     );
   }
 
@@ -86,13 +113,15 @@ class JewelleryItem {
     return JewelleryItem(
       id: id,
       name: name,
-      stockNumber: stockNumber,
       kind: kind,
       metal: metal,
       purity: purity,
       weightGrams: weightGrams,
+      currencyId: currencyId,
       costCents: costCents,
       notes: notes,
+      imageUrl: imageUrl,
+      imageKey: imageKey,
       createdOn: createdOn,
     );
   }
@@ -101,13 +130,15 @@ class JewelleryItem {
     return {
       'id': id,
       'name': name,
-      'stockNumber': stockNumber,
       'kind': kind.name,
       'metal': metal.name,
       'purity': purity,
       'weightGrams': weightGrams,
+      'currencyId': currencyId,
       'costCents': costCents,
       'notes': notes,
+      'imageUrl': imageUrl,
+      'imageKey': imageKey,
       'createdOn': createdOn.iso,
       'soldOn': soldOn?.iso,
       'soldCents': soldCents,
@@ -116,23 +147,25 @@ class JewelleryItem {
 
   factory JewelleryItem.fromJson(Map<String, Object?> json) {
     final soldOnRaw = json['soldOn'];
-    final soldCentsRaw = json['soldCents'];
-    if ((soldOnRaw == null) != (soldCentsRaw == null)) {
+    final soldCents = _soldCents(json);
+    if ((soldOnRaw == null) != (soldCents == null)) {
       throw const FormatException('A sale needs both a date and a price.');
     }
     return JewelleryItem(
       id: _string(json, 'id'),
       name: _string(json, 'name'),
-      stockNumber: _string(json, 'stockNumber'),
       kind: _byName(PieceKind.values, json['kind'], 'kind'),
       metal: _byName(Metal.values, json['metal'], 'metal'),
       purity: _string(json, 'purity'),
       weightGrams: _grams(json['weightGrams']),
-      costCents: _cents(json['costCents']),
-      notes: _string(json, 'notes'),
+      currencyId: _currencyId(json['currencyId']),
+      costCents: _costCents(json),
+      notes: json['notes'] is String ? json['notes'] as String : '',
+      imageUrl: json['imageUrl'] is String ? json['imageUrl'] as String : '',
+      imageKey: json['imageKey'] is String ? json['imageKey'] as String : '',
       createdOn: Day.parse(_string(json, 'createdOn')),
       soldOn: soldOnRaw == null ? null : Day.parse(soldOnRaw as String),
-      soldCents: soldCentsRaw as int?,
+      soldCents: soldCents,
     );
   }
 }
@@ -146,19 +179,18 @@ String newItemId() {
 class ItemDraft {
   const ItemDraft({
     required this.name,
-    required this.stockNumber,
     required this.kind,
     required this.metal,
     required this.purity,
     required this.weightText,
     required this.costText,
     required this.notes,
+    this.currencyId = dollarCurrencyId,
   });
 
   factory ItemDraft.initial() {
     return const ItemDraft(
       name: '',
-      stockNumber: '',
       kind: PieceKind.ring,
       metal: Metal.gold,
       purity: '18K',
@@ -171,24 +203,24 @@ class ItemDraft {
   factory ItemDraft.fromItem(JewelleryItem item) {
     return ItemDraft(
       name: item.name,
-      stockNumber: item.stockNumber,
       kind: item.kind,
       metal: item.metal,
       purity: item.purity,
       weightText: gramsToInput(item.weightGrams),
       costText: centsToInput(item.costCents),
       notes: item.notes,
+      currencyId: item.currencyId,
     );
   }
 
   final String name;
-  final String stockNumber;
   final PieceKind kind;
   final Metal metal;
   final String purity;
   final String weightText;
   final String costText;
   final String notes;
+  final String currencyId;
 
   String? get nameError =>
       name.trim().isEmpty ? 'Give the piece a name.' : null;
@@ -208,17 +240,24 @@ class ItemDraft {
       weightError == null &&
       costError == null;
 
-  JewelleryItem toItem({required String id, required Day createdOn}) {
+  JewelleryItem toItem({
+    required String id,
+    required Day createdOn,
+    String imageUrl = '',
+    String imageKey = '',
+  }) {
     return JewelleryItem(
       id: id,
       name: name.trim(),
-      stockNumber: stockNumber.trim(),
       kind: kind,
       metal: metal,
       purity: purity.trim(),
       weightGrams: parseGrams(weightText)!,
+      currencyId: currencyId,
       costCents: parseCents(costText)!,
       notes: notes.trim(),
+      imageUrl: imageUrl,
+      imageKey: imageKey,
       createdOn: createdOn,
     );
   }
@@ -243,7 +282,29 @@ double _grams(Object? value) {
   return value.toDouble();
 }
 
-int _cents(Object? value) {
-  if (value is! int) throw const FormatException('Missing cost.');
-  return value;
+String _currencyId(Object? value) {
+  if (value is String && value.isNotEmpty) return value;
+  return dollarCurrencyId;
+}
+
+/// Server prices are whole units. Older books on the phone stored cents.
+int _costCents(Map<String, Object?> json) {
+  final whole = json['cost'];
+  if (whole is num) return whole.round() * 100;
+  final cents = json['costCents'];
+  if (cents is int) return cents;
+  throw const FormatException('Missing cost.');
+}
+
+int? _soldCents(Map<String, Object?> json) {
+  if (json.containsKey('soldAmount')) {
+    final whole = json['soldAmount'];
+    if (whole == null) return null;
+    if (whole is! num) throw const FormatException('Missing sale price.');
+    return whole.round() * 100;
+  }
+  final cents = json['soldCents'];
+  if (cents == null) return null;
+  if (cents is! int) throw const FormatException('Missing sale price.');
+  return cents;
 }

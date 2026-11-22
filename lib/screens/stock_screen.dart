@@ -5,6 +5,7 @@ import 'package:karat/l10n/app_text.dart';
 import 'package:karat/screens/item_detail_screen.dart';
 import 'package:karat/state/karat_controller.dart';
 import 'package:karat/theme/karat_theme.dart';
+import 'package:karat/widgets/piece_photo.dart';
 import 'package:material_ui/material_ui.dart';
 
 class StockScreen extends StatefulWidget {
@@ -170,6 +171,15 @@ class _PieceCard extends StatelessWidget {
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  if (item.imageUrl.isNotEmpty) ...[
+                    PiecePhoto(
+                      imageUrl: item.imageUrl,
+                      height: 56,
+                      width: 56,
+                      radius: 12,
+                    ),
+                    const SizedBox(width: 12),
+                  ],
                   Expanded(
                     child: Text(
                       item.name,
@@ -178,7 +188,11 @@ class _PieceCard extends StatelessWidget {
                   ),
                   if (profit != null)
                     Text(
-                      formatCents(profit, signed: true),
+                      formatCents(
+                        profit,
+                        signed: true,
+                        currencyId: item.currencyId,
+                      ),
                       style: TextStyle(
                         color: profit < 0
                             ? KaratColors.loss
@@ -199,19 +213,19 @@ class _PieceCard extends StatelessWidget {
                 item.isSold
                     ? text.soldLine(
                         formatDay(item.soldOn!, languageCode: languageCode),
-                        formatCents(item.soldCents!),
+                        formatCents(
+                          item.soldCents!,
+                          currencyId: item.currencyId,
+                        ),
                       )
-                    : text.costLine(formatCents(item.costCents)),
+                    : text.costLine(
+                        formatCents(
+                          item.costCents,
+                          currencyId: item.currencyId,
+                        ),
+                      ),
                 style: Theme.of(context).textTheme.bodyMedium,
               ),
-              if (item.stockNumber.isNotEmpty) ...[
-                const SizedBox(height: 4),
-                Text(
-                  item.stockNumber,
-                  style: Theme.of(context).textTheme.bodySmall
-                      ?.copyWith(color: KaratColors.ink.withValues(alpha: 0.6)),
-                ),
-              ],
             ],
           ),
         ),

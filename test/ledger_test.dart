@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:karat/auth/auth_client.dart';
 import 'package:karat/data/inventory_repository.dart';
 import 'package:karat/domain/book_notice.dart';
+import 'package:karat/domain/currency.dart';
 import 'package:karat/domain/day.dart';
 import 'package:karat/domain/jewellery_item.dart';
 import 'package:karat/domain/money.dart';
@@ -15,16 +16,17 @@ import 'package:karat/state/karat_controller.dart';
 import 'support/fakes.dart';
 
 void main() {
-  test('money accepts whole and two-decimal amounts', () {
+  test('money is a whole number of the currency', () {
     expect(parseCents('50'), 5000);
-    expect(parseCents('50.5'), 5050);
-    expect(parseCents('1,200.00'), 120000);
+    expect(parseCents('1,200'), 120000);
     expect(parseCents('\$80'), 8000);
     expect(parseCents(''), isNull);
     expect(parseCents('-1'), isNull);
-    expect(parseCents('12.345'), isNull);
-    expect(formatCents(10000, signed: true), '+\$100.00');
-    expect(formatCents(-2000, signed: true), '-\$20.00');
+    expect(parseCents('50.5'), isNull);
+    expect(parseCents('12.00'), isNull);
+    expect(formatCents(10000, signed: true), '+\$100');
+    expect(formatCents(-2000, signed: true), '-\$20');
+    expect(formatCents(5000, currencyId: somoniCurrencyId), 'TJS50');
   });
 
   test('weeks run Monday through Sunday', () {
@@ -68,7 +70,7 @@ void main() {
 
   test('stock view filters by sale state and search', () {
     final items = [
-      _piece(id: 'ring', name: 'Oval sapphire ring', stockNumber: 'R-14'),
+      _piece(id: 'ring', name: 'Oval sapphire ring'),
       _piece(
         id: 'chain',
         name: 'Trace chain',
@@ -78,7 +80,7 @@ void main() {
     ];
     expect(stockView(items, sold: false).map((item) => item.id), ['ring']);
     expect(stockView(items, sold: true).map((item) => item.id), ['chain']);
-    expect(stockView(items, sold: false, query: 'r-14').single.id, 'ring');
+    expect(stockView(items, sold: false, query: 'sapphire').single.id, 'ring');
   });
 
   test('a piece survives a json round trip', () {
@@ -185,7 +187,6 @@ class _FailingInventory implements InventoryRepository {
 JewelleryItem _piece({
   required String id,
   String name = 'Oval sapphire ring',
-  String stockNumber = '',
   int costCents = 5000,
   Day? soldOn,
   int? soldCents,
@@ -193,7 +194,6 @@ JewelleryItem _piece({
   return JewelleryItem(
     id: id,
     name: name,
-    stockNumber: stockNumber,
     kind: PieceKind.ring,
     metal: Metal.gold,
     purity: '18K',

@@ -4,6 +4,7 @@ import 'package:karat/l10n/app_text.dart';
 import 'package:karat/l10n/locale_controller.dart';
 import 'package:karat/state/karat_controller.dart';
 import 'package:karat/theme/karat_theme.dart';
+import 'package:karat/widgets/currency_menu.dart';
 import 'package:karat/widgets/karat_mark.dart';
 import 'package:karat/widgets/language_toggle.dart';
 import 'package:karat/widgets/shop_width.dart';
@@ -46,7 +47,17 @@ class SignInScreen extends StatelessWidget {
                   children: [
                     Align(
                       alignment: Alignment.centerRight,
-                      child: LanguageToggle(locales: locales),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          CurrencyMenuButton(
+                            currencies: controller.currencies,
+                            selectedId: controller.shopCurrencyId,
+                            onSelected: controller.chooseCurrency,
+                          ),
+                          LanguageToggle(locales: locales),
+                        ],
+                      ),
                     ),
                     const Spacer(),
                     const KaratMark(size: 76),

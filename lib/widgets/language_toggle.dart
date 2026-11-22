@@ -10,58 +10,51 @@ class LanguageToggle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final code = Localizations.localeOf(context).languageCode;
+    final code = Localizations.localeOf(context).languageCode == 'ru'
+        ? 'ru'
+        : 'en';
     final text = AppText.of(context);
-    return Semantics(
-      label: text.languageLabel,
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          _LangButton(
+    return PopupMenuButton<String>(
+      key: const Key('open-language'),
+      tooltip: text.languageLabel,
+      initialValue: code,
+      onSelected: locales.choose,
+      itemBuilder: (context) {
+        return [
+          PopupMenuItem(
             key: const Key('lang-en'),
-            label: 'EN',
-            selected: code != 'ru',
-            onTap: () => locales.choose('en'),
+            value: 'en',
+            child: Text(text.english),
           ),
-          _LangButton(
+          PopupMenuItem(
             key: const Key('lang-ru'),
-            label: 'RU',
-            selected: code == 'ru',
-            onTap: () => locales.choose('ru'),
+            value: 'ru',
+            child: Text(text.russian),
           ),
-        ],
-      ),
+        ];
+      },
+      child: _CurrentChoice(code == 'ru' ? 'RU' : 'EN'),
     );
   }
 }
 
-class _LangButton extends StatelessWidget {
-  const _LangButton({
-    super.key,
-    required this.label,
-    required this.selected,
-    required this.onTap,
-  });
+class _CurrentChoice extends StatelessWidget {
+  const _CurrentChoice(this.label);
 
   final String label;
-  final bool selected;
-  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    return TextButton(
-      onPressed: selected ? null : onTap,
-      style: TextButton.styleFrom(
-        foregroundColor: selected ? KaratColors.ink : KaratColors.goldDeep,
-        disabledForegroundColor: KaratColors.ink,
-        minimumSize: const Size(40, 36),
-        padding: const EdgeInsets.symmetric(horizontal: 8),
-        textStyle: TextStyle(
-          fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+      child: Text(
+        label,
+        style: const TextStyle(
+          color: KaratColors.ink,
+          fontWeight: FontWeight.w700,
           letterSpacing: 0.4,
         ),
       ),
-      child: Text(label),
     );
   }
 }

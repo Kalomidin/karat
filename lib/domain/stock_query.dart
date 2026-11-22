@@ -11,7 +11,6 @@ List<JewelleryItem> stockView(
     if (needle.isEmpty) return true;
     final haystack = [
       item.name,
-      item.stockNumber,
       item.kind.label,
       _kindRu[item.kind],
       item.metal.label,

@@ -1,10 +1,12 @@
 import 'package:karat/l10n/app_text.dart';
 import 'package:karat/l10n/locale_controller.dart';
+import 'package:karat/screens/account_screen.dart';
 import 'package:karat/screens/stock_screen.dart';
 import 'package:karat/screens/week_screen.dart';
 import 'package:karat/screens/item_form_screen.dart';
 import 'package:karat/state/karat_controller.dart';
 import 'package:karat/theme/karat_theme.dart';
+import 'package:karat/widgets/currency_menu.dart';
 import 'package:karat/widgets/language_toggle.dart';
 import 'package:karat/widgets/shop_width.dart';
 import 'package:material_ui/material_ui.dart';
@@ -46,6 +48,17 @@ class _ShopShellState extends State<ShopShell> {
     if (leave == true && mounted) {
       await widget.controller.signOut();
     }
+  }
+
+  void _openAccount() {
+    final user = widget.controller.user;
+    if (user == null) return;
+    Navigator.push(
+      context,
+      MaterialPageRoute<void>(
+        builder: (_) => AccountScreen(controller: widget.controller),
+      ),
+    );
   }
 
   void _openForm() {
@@ -113,14 +126,20 @@ class _ShopShellState extends State<ShopShell> {
                                     .headlineMedium,
                               ),
                               if (user != null)
-                                Text(
-                                  user.email,
-                                  style: Theme.of(context).textTheme.bodyMedium
-                                      ?.copyWith(
-                                        color: KaratColors.ink.withValues(
-                                          alpha: 0.68,
+                                GestureDetector(
+                                  key: const Key('open-account'),
+                                  onTap: _openAccount,
+                                  child: Text(
+                                    user.headerTitle,
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .bodyMedium
+                                        ?.copyWith(
+                                          color: KaratColors.ink.withValues(
+                                            alpha: 0.68,
+                                          ),
                                         ),
-                                      ),
+                                  ),
                                 ),
                             ],
                           ),
@@ -129,6 +148,11 @@ class _ShopShellState extends State<ShopShell> {
                           tooltip: text.signOut,
                           onPressed: _confirmSignOut,
                           icon: const Icon(Icons.logout),
+                        ),
+                        CurrencyMenuButton(
+                          currencies: controller.currencies,
+                          selectedId: controller.shopCurrencyId,
+                          onSelected: controller.chooseCurrency,
                         ),
                         LanguageToggle(locales: widget.locales),
                       ],

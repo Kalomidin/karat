@@ -1,30 +1,26 @@
 import 'dart:io';
 
-/// Google OAuth client ids for Karat.
+import 'package:flutter_dotenv/flutter_dotenv.dart';
+
+/// Google OAuth client ids from `.env`.
 ///
-/// The app targets Android and iOS only. Sign-in stays blocked until the
-/// ids below are filled in from the same Google Cloud project.
-///
-/// 1. Create an OAuth project at https://console.cloud.google.com/apis/credentials
-/// 2. Android client: package name `com.karat.karat`, plus the SHA-1 of the
-///    keystore you sign with. Debug SHA-1:
-///    `keytool -list -v -alias androiddebugkey -keystore ~/.android/debug.keystore -storepass android`
-/// 3. Web client: create one in that project and paste its id into
-///    [serverClientId]. Android sign-in uses the web client id, not the
-///    Android client id.
-/// 4. iOS client: bundle id `com.karat.karat`. Paste its id into [iosClientId].
-///    Also set `GIDClientID` in `ios/Runner/Info.plist`, and set the URL
-///    scheme to the reversed client id. For
-///    `123-abc.apps.googleusercontent.com` the scheme is
-///    `com.googleusercontent.apps.123-abc`.
+/// Android sign-in uses [serverClientId], the Web client id.
+/// The Android client (package `com.karat.karat` plus the debug SHA-1)
+/// stays in Google Cloud and is not pasted here.
+/// iOS also needs the same [iosClientId] in `ios/Runner/Info.plist`.
 abstract final class GoogleAuthConfig {
-  static const iosClientId =
-      '942973487076-75esdqolvo0ropi4hjq23rcr8mvdnu3b.apps.googleusercontent.com';
-  static const serverClientId = '';
+  static String get iosClientId => _env('GOOGLE_IOS_CLIENT_ID');
+
+  static String get serverClientId => _env('GOOGLE_SERVER_CLIENT_ID');
 
   static bool get needsClientId {
-    if (Platform.isAndroid && serverClientId.trim().isEmpty) return true;
-    if (Platform.isIOS && iosClientId.trim().isEmpty) return true;
+    if (Platform.isAndroid && serverClientId.isEmpty) return true;
+    if (Platform.isIOS && iosClientId.isEmpty) return true;
     return false;
   }
+}
+
+String _env(String key) {
+  if (!dotenv.isInitialized) return '';
+  return dotenv.maybeGet(key)?.trim() ?? '';
 }
