@@ -1,6 +1,10 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:karat/app.dart';
 import 'package:karat/auth/auth_client.dart';
+import 'package:karat/data/item_api.dart';
+import 'package:karat/domain/currency.dart';
+import 'package:karat/domain/day.dart';
+import 'package:karat/domain/jewellery_item.dart';
 import 'package:karat/l10n/locale_controller.dart';
 import 'package:karat/state/karat_controller.dart';
 import 'package:material_ui/material_ui.dart';
@@ -67,13 +71,13 @@ void main() {
     expect(find.text('+\$100'), findsWidgets);
     await tester.pageBack();
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Week'));
+    await tester.tap(find.text('Gains'));
     await tester.pumpAndSettle();
 
     expect(find.byKey(const Key('week-profit')), findsOneWidget);
     expect(find.text('+\$100'), findsWidgets);
     expect(find.text('Oval sapphire ring'), findsOneWidget);
-    expect(find.text('No sales this week.'), findsNothing);
+    expect(find.text('No sales in this period.'), findsNothing);
   });
 
   testWidgets('the language switch changes the stock book into Russian', (
@@ -108,7 +112,7 @@ void main() {
 
     expect(find.text('Новое изделие'), findsOneWidget);
     expect(find.text('Наличие'), findsOneWidget);
-    expect(find.text('Неделя'), findsOneWidget);
+    expect(find.text('Прибыль'), findsOneWidget);
   });
 
   testWidgets('the header shows one currency and a tap changes it', (
@@ -147,4 +151,63 @@ void main() {
     expect(find.text('Somoni'), findsOneWidget);
     expect(find.text('TJS '), findsOneWidget);
   });
+
+  testWidgets('a rejected sale says the update failed', (tester) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final controller = KaratController(
+      inventory: MemoryInventory(),
+      itemsApi: _RejectingItems(),
+      auth: FakeAuth(
+        restored: const ShopUser(id: 'ada', email: 'ada@atelier.test'),
+        token: 'token',
+      ),
+      now: () => DateTime(2026, 11, 21),
+    );
+    await tester.pumpWidget(
+      KaratApp(controller: controller, locales: LocaleController()),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Server ring'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('mark-sold')));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byKey(const Key('sale-price')), '150');
+    await tester.tap(find.byKey(const Key('record-sale')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Update failed'), findsOneWidget);
+    expect(find.byKey(const Key('record-sale')), findsOneWidget);
+  });
+}
+
+class _RejectingItems extends ItemApi {
+  _RejectingItems() : super(apiBase: 'http://127.0.0.1');
+
+  @override
+  Future<List<JewelleryItem>> list(String idToken) async {
+    return [
+      JewelleryItem(
+        id: 'ring',
+        name: 'Server ring',
+        kind: PieceKind.ring,
+        metal: Metal.gold,
+        purity: '18K',
+        weightGrams: 3,
+        currencyId: dollarCurrencyId,
+        costCents: 5000,
+        notes: '',
+        createdOn: const Day(2026, 11, 2),
+      ),
+    ];
+  }
+
+  @override
+  Future<JewelleryItem> sell(String idToken, JewelleryItem item) {
+    throw const ItemApiException();
+  }
 }

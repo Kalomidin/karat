@@ -1,4 +1,4 @@
-/// A calendar day in the shop's local time, with no clock time attached.
+/// A calendar day on the device, with no clock time attached.
 class Day implements Comparable<Day> {
   const Day(this.year, this.month, this.day);
 
@@ -37,10 +37,30 @@ class Day implements Comparable<Day> {
     return '$year-$monthText-$dayText';
   }
 
+  /// Start of this device day, written as a UTC timestamp.
+  String get utcStart => utcStamp(DateTime(year, month, day));
+
+  /// A server timestamp, shown as the calendar day on this device.
+  factory Day.fromServer(String value) {
+    if (value.contains('T')) {
+      return Day.fromDateTime(DateTime.parse(value).toLocal());
+    }
+    return Day.parse(value);
+  }
+
   Day addDays(int days) => Day.fromDateTime(date.add(Duration(days: days)));
 
   /// Monday of the week that contains this day.
   Day get weekStart => addDays(-(date.weekday - DateTime.monday));
+
+  Day get monthStart => Day(year, month, 1);
+
+  Day get monthEnd {
+    final nextMonth = month == 12
+        ? DateTime(year + 1, 1, 1)
+        : DateTime(year, month + 1, 1);
+    return Day.fromDateTime(nextMonth.subtract(const Duration(days: 1)));
+  }
 
   @override
   int compareTo(Day other) {
@@ -67,4 +87,12 @@ class Day implements Comparable<Day> {
 
   @override
   String toString() => iso;
+}
+
+/// UTC timestamp with no fractional seconds, which the server accepts.
+String utcStamp(DateTime value) {
+  final utc = value.toUtc();
+  String two(int number) => number.toString().padLeft(2, '0');
+  final year = utc.year.toString().padLeft(4, '0');
+  return '$year-${two(utc.month)}-${two(utc.day)}T${two(utc.hour)}:${two(utc.minute)}:${two(utc.second)}Z';
 }

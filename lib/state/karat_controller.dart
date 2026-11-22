@@ -151,7 +151,7 @@ class KaratController extends ChangeNotifier {
     final index = _items.indexWhere((existing) => existing.id == item.id);
     if (index >= 0 && _items[index].isSold) return BookNotice.soldLocked;
     final stored = await _storeRemote(item, creating: index < 0);
-    if (stored == null) return BookNotice.unsaved;
+    if (stored == null) return BookNotice.updateFailed;
     final next = [..._items];
     if (index < 0) {
       next.insert(0, stored);
@@ -173,8 +173,14 @@ class KaratController extends ChangeNotifier {
     final index = _items.indexWhere((item) => item.id == id);
     if (index < 0) return BookNotice.missing;
     if (_items[index].isSold) return BookNotice.alreadySold;
+    final sold = _items[index].markSold(on: soldOn, cents: soldCents);
+    final stored = await _applyRemote(
+      sold,
+      (api, token) => api.sell(token, sold),
+    );
+    if (stored == null) return BookNotice.updateFailed;
     final next = [..._items];
-    next[index] = _items[index].markSold(on: soldOn, cents: soldCents);
+    next[index] = stored;
     return _commit(next);
   }
 
@@ -184,16 +190,25 @@ class KaratController extends ChangeNotifier {
     final index = _items.indexWhere((item) => item.id == id);
     if (index < 0) return BookNotice.missing;
     if (!_items[index].isSold) return BookNotice.stillInStock;
+    final returned = _items[index].returnToStock();
+    final stored = await _applyRemote(
+      returned,
+      (api, token) => api.returnToStock(token, id),
+    );
+    if (stored == null) return BookNotice.updateFailed;
     final next = [..._items];
-    next[index] = _items[index].returnToStock();
+    next[index] = stored;
     return _commit(next);
   }
 
   Future<BookNotice?> deleteItem(String id) async {
     final blocked = _writable();
     if (blocked != null) return blocked;
-    final next = _items.where((item) => item.id != id).toList();
-    if (next.length == _items.length) return BookNotice.missing;
+    final index = _items.indexWhere((item) => item.id == id);
+    if (index < 0) return BookNotice.missing;
+    final removed = await _deleteRemote(id);
+    if (!removed) return BookNotice.updateFailed;
+    final next = [..._items]..removeAt(index);
     return _commit(next);
   }
 
@@ -316,6 +331,34 @@ class KaratController extends ChangeNotifier {
       return item.withServerIdentity(remote);
     } catch (_) {
       return null;
+    }
+  }
+
+  Future<JewelleryItem?> _applyRemote(
+    JewelleryItem item,
+    Future<JewelleryItem> Function(ItemApi api, String token) call,
+  ) async {
+    final api = itemsApi;
+    if (api == null) return item;
+    try {
+      final token = await auth.idToken();
+      if (token == null || token.isEmpty) return null;
+      return item.withServerIdentity(await call(api, token));
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<bool> _deleteRemote(String id) async {
+    final api = itemsApi;
+    if (api == null) return true;
+    try {
+      final token = await auth.idToken();
+      if (token == null || token.isEmpty) return false;
+      await api.delete(token, id);
+      return true;
+    } catch (_) {
+      return false;
     }
   }
 

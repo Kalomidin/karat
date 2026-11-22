@@ -1,40 +1,66 @@
 import 'package:karat/domain/day.dart';
 import 'package:karat/domain/jewellery_item.dart';
 
-/// A Monday–Sunday shop week.
-class Week {
-  Week._(this.start);
+enum GainSpan { day, week, month, custom }
 
-  factory Week.of(Day day) => Week._(day.weekStart);
+/// Inclusive range of sale days for a gains report.
+class GainPeriod {
+  const GainPeriod(this.start, this.end);
 
-  final Day start;
-
-  Day get lastDay => start.addDays(6);
-
-  bool contains(Day day) {
-    return day >= start && day < start.addDays(7);
+  factory GainPeriod.around(GainSpan span, Day day) {
+    return switch (span) {
+      GainSpan.day => GainPeriod(day, day),
+      GainSpan.week => GainPeriod(day.weekStart, day.weekStart.addDays(6)),
+      GainSpan.month => GainPeriod(day.monthStart, day.monthEnd),
+      GainSpan.custom => GainPeriod(day, day),
+    };
   }
 
-  Week previous() => Week._(start.addDays(-7));
+  final Day start;
+  final Day end;
 
-  Week next() => Week._(start.addDays(7));
+  bool contains(Day day) => day >= start && day <= end;
+
+  GainPeriod shift(int direction, GainSpan span) {
+    return switch (span) {
+      GainSpan.day => GainPeriod.around(span, start.addDays(direction)),
+      GainSpan.week => GainPeriod.around(span, start.addDays(7 * direction)),
+      GainSpan.month => GainPeriod.around(span, _shiftMonth(start, direction)),
+      GainSpan.custom => this,
+    };
+  }
 
   @override
-  bool operator ==(Object other) => other is Week && other.start == start;
+  bool operator ==(Object other) =>
+      other is GainPeriod && other.start == start && other.end == end;
 
   @override
-  int get hashCode => start.hashCode;
+  int get hashCode => Object.hash(start, end);
 }
 
-/// Profit for pieces sold during one week.
+Day _shiftMonth(Day monthStart, int direction) {
+  var month = monthStart.month + direction;
+  var year = monthStart.year;
+  while (month < 1) {
+    month += 12;
+    year -= 1;
+  }
+  while (month > 12) {
+    month -= 12;
+    year += 1;
+  }
+  return Day(year, month, 1);
+}
+
+/// Profit for pieces sold during one period.
 ///
 /// Profit is the sale price minus the recorded cost. Pieces still in stock
-/// are left out, as are sales from any other week.
-class WeekProfit {
-  WeekProfit({required this.week, required List<JewelleryItem> items})
-    : sales = _salesIn(week, items);
+/// are left out, as are sales outside the period.
+class PeriodProfit {
+  PeriodProfit({required this.period, required List<JewelleryItem> items})
+    : sales = _salesIn(period, items);
 
-  final Week week;
+  final GainPeriod period;
   final List<JewelleryItem> sales;
 
   int get revenueCents =>
@@ -94,10 +120,10 @@ class CurrencyTotal {
   final int profitCents;
 }
 
-List<JewelleryItem> _salesIn(Week week, List<JewelleryItem> items) {
+List<JewelleryItem> _salesIn(GainPeriod period, List<JewelleryItem> items) {
   final sales = items.where((item) {
     final soldOn = item.soldOn;
-    return item.isSold && soldOn != null && week.contains(soldOn);
+    return item.isSold && soldOn != null && period.contains(soldOn);
   }).toList();
   sales.sort((a, b) {
     final byDay = b.soldOn!.compareTo(a.soldOn!);

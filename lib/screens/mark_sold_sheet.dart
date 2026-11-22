@@ -1,3 +1,4 @@
+import 'package:karat/domain/book_notice.dart';
 import 'package:karat/domain/currency.dart';
 import 'package:karat/domain/day.dart';
 import 'package:karat/domain/jewellery_item.dart';
@@ -6,6 +7,7 @@ import 'package:karat/format.dart';
 import 'package:karat/l10n/app_text.dart';
 import 'package:karat/state/karat_controller.dart';
 import 'package:karat/theme/karat_theme.dart';
+import 'package:karat/widgets/update_failed_dialog.dart';
 import 'package:material_ui/material_ui.dart';
 
 Future<void> showMarkSoldSheet(
@@ -74,6 +76,11 @@ class _MarkSoldSheetState extends State<MarkSoldSheet> {
       soldOn: _soldOn,
     );
     if (!mounted) return;
+    if (error == BookNotice.updateFailed) {
+      setState(() => _saving = false);
+      await showUpdateFailed(context);
+      return;
+    }
     if (error != null) {
       setState(() {
         _saving = false;

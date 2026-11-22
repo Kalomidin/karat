@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 
 import 'package:image_picker/image_picker.dart';
+import 'package:karat/domain/book_notice.dart';
 import 'package:karat/domain/currency.dart';
 import 'package:karat/data/piece_photo_file.dart';
 import 'package:karat/widgets/currency_menu.dart';
@@ -10,10 +11,11 @@ import 'package:karat/l10n/app_text.dart';
 import 'package:karat/state/karat_controller.dart';
 import 'package:karat/theme/karat_theme.dart';
 import 'package:karat/widgets/piece_photo.dart';
+import 'package:karat/widgets/update_failed_dialog.dart';
 import 'package:karat/widgets/shop_width.dart';
 import 'package:material_ui/material_ui.dart';
 
-const _purities = ['24K', '22K', '18K', '14K', '925', '999'];
+const _purities = ['999', '916', '750', '585', '375'];
 
 class ItemFormScreen extends StatefulWidget {
   const ItemFormScreen({
@@ -194,9 +196,13 @@ class _ItemFormScreenState extends State<ItemFormScreen> {
     if (!mounted) return;
     if (error != null) {
       setState(() => _saving = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(AppText.of(context).notice(error))),
-      );
+      if (error == BookNotice.updateFailed) {
+        await showUpdateFailed(context);
+      } else if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(AppText.of(context).notice(error))),
+        );
+      }
       return;
     }
     Navigator.pop(context);

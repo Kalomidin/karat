@@ -40,16 +40,44 @@ class ItemApi {
     return _write(idToken, 'PUT', '$apiBase/item/${item.id}', item);
   }
 
+  Future<JewelleryItem> sell(String idToken, JewelleryItem item) {
+    return _writeJson(idToken, 'POST', '$apiBase/item/${item.id}/sale', {
+      'soldOn': item.soldOn!.utcStart,
+      'soldAmount': item.soldCents! ~/ 100,
+    });
+  }
+
+  Future<JewelleryItem> returnToStock(String idToken, String id) {
+    return _writeJson(idToken, 'POST', '$apiBase/item/$id/return', const {});
+  }
+
+  Future<void> delete(String idToken, String id) async {
+    final request = await _http.deleteUrl(Uri.parse('$apiBase/item/$id'));
+    request.headers.set(HttpHeaders.authorizationHeader, 'Bearer $idToken');
+    final response = await request.close().timeout(const Duration(seconds: 8));
+    await response.drain<void>();
+    if (response.statusCode != 200) throw const ItemApiException();
+  }
+
   Future<JewelleryItem> _write(
     String idToken,
     String method,
     String url,
     JewelleryItem item,
   ) async {
+    return _writeJson(idToken, method, url, _body(item));
+  }
+
+  Future<JewelleryItem> _writeJson(
+    String idToken,
+    String method,
+    String url,
+    Map<String, Object?> body,
+  ) async {
     final request = await _http.openUrl(method, Uri.parse(url));
     request.headers.set(HttpHeaders.authorizationHeader, 'Bearer $idToken');
     request.headers.set(HttpHeaders.contentTypeHeader, 'application/json');
-    request.add(utf8.encode(jsonEncode(_body(item))));
+    request.add(utf8.encode(jsonEncode(body)));
     final response = await request.close().timeout(const Duration(seconds: 8));
     final raw = await response.transform(utf8.decoder).join();
     if (response.statusCode != 200) throw const ItemApiException();
@@ -69,6 +97,7 @@ Map<String, Object?> _body(JewelleryItem item) {
     'currencyId': item.currencyId,
     'cost': item.costCents ~/ 100,
     'notes': item.notes,
+    'createdOn': item.createdOn.utcStart,
     if (item.imageKey.isNotEmpty) 'imageKey': item.imageKey,
   };
 }

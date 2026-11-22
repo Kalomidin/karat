@@ -163,8 +163,8 @@ class JewelleryItem {
       notes: json['notes'] is String ? json['notes'] as String : '',
       imageUrl: json['imageUrl'] is String ? json['imageUrl'] as String : '',
       imageKey: json['imageKey'] is String ? json['imageKey'] as String : '',
-      createdOn: Day.parse(_string(json, 'createdOn')),
-      soldOn: soldOnRaw == null ? null : Day.parse(soldOnRaw as String),
+      createdOn: Day.fromServer(_string(json, 'createdOn')),
+      soldOn: soldOnRaw == null ? null : Day.fromServer(soldOnRaw as String),
       soldCents: soldCents,
     );
   }
@@ -193,7 +193,7 @@ class ItemDraft {
       name: '',
       kind: PieceKind.ring,
       metal: Metal.gold,
-      purity: '18K',
+      purity: '750',
       weightText: '',
       costText: '',
       notes: '',
@@ -226,7 +226,7 @@ class ItemDraft {
       name.trim().isEmpty ? 'Give the piece a name.' : null;
 
   String? get purityError =>
-      purity.trim().isEmpty ? 'Add the purity, such as 18K or 925.' : null;
+      purity.trim().isEmpty ? 'Add the purity, such as 750 or 585.' : null;
 
   String? get weightError =>
       parseGrams(weightText) == null ? 'Enter the weight in grams.' : null;

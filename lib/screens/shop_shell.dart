@@ -2,7 +2,7 @@ import 'package:karat/l10n/app_text.dart';
 import 'package:karat/l10n/locale_controller.dart';
 import 'package:karat/screens/account_screen.dart';
 import 'package:karat/screens/stock_screen.dart';
-import 'package:karat/screens/week_screen.dart';
+import 'package:karat/screens/gains_screen.dart';
 import 'package:karat/screens/item_form_screen.dart';
 import 'package:karat/state/karat_controller.dart';
 import 'package:karat/theme/karat_theme.dart';
@@ -99,9 +99,9 @@ class _ShopShellState extends State<ShopShell> {
                 label: text.stock,
               ),
               NavigationDestination(
-                icon: const Icon(Icons.calendar_view_week_outlined),
-                selectedIcon: const Icon(Icons.calendar_view_week),
-                label: text.week,
+                icon: const Icon(Icons.trending_up),
+                selectedIcon: const Icon(Icons.trending_up),
+                label: text.gains,
               ),
             ],
           ),
@@ -171,7 +171,7 @@ class _ShopShellState extends State<ShopShell> {
                       index: _index,
                       children: [
                         StockScreen(controller: controller),
-                        WeekScreen(controller: controller),
+                        GainsScreen(controller: controller),
                       ],
                     ),
                   ),

@@ -3,6 +3,7 @@ enum BookNotice {
   unreadable,
   unreadableNoChange,
   unsaved,
+  updateFailed,
   soldLocked,
   missing,
   alreadySold,

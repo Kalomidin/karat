@@ -32,9 +32,9 @@ String formatDay(Day day, {String languageCode = 'en'}) {
   return DateFormat.yMMMd(_dateLocale(languageCode)).format(day.date);
 }
 
-String formatWeekRange(Day start, {String languageCode = 'en'}) {
+String formatPeriod(Day start, Day end, {String languageCode = 'en'}) {
+  if (start == end) return formatDay(start, languageCode: languageCode);
   final locale = _dateLocale(languageCode);
-  final end = start.addDays(6);
   final dayMonth = DateFormat.MMMd(locale);
   final dayMonthYear = DateFormat.yMMMd(locale);
   if (start.year == end.year) {

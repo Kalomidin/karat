@@ -29,22 +29,32 @@ void main() {
     expect(formatCents(5000, currencyId: somoniCurrencyId), 'TJS50');
   });
 
+  test('a utc timestamp is shown on the device calendar', () {
+    final local = DateTime(2026, 11, 22, 1, 30);
+    expect(Day.fromServer(utcStamp(local)), Day.fromDateTime(local));
+    expect(const Day(2026, 11, 22).utcStart, endsWith('Z'));
+  });
+
   test('weeks run Monday through Sunday', () {
     expect(Day(2026, 11, 21).weekStart, const Day(2026, 11, 16));
     expect(Day(2026, 11, 22).weekStart, const Day(2026, 11, 16));
     expect(Day(2026, 11, 23).weekStart, const Day(2026, 11, 23));
+    final week = GainPeriod.around(GainSpan.week, const Day(2026, 11, 21));
+    expect(week.contains(const Day(2026, 11, 16)), isTrue);
+    expect(week.contains(const Day(2026, 11, 23)), isFalse);
     expect(
-      Week.of(const Day(2026, 11, 21)).contains(const Day(2026, 11, 16)),
-      isTrue,
+      GainPeriod.around(GainSpan.day, const Day(2026, 11, 21)),
+      const GainPeriod(Day(2026, 11, 21), Day(2026, 11, 21)),
     );
     expect(
-      Week.of(const Day(2026, 11, 21)).contains(const Day(2026, 11, 23)),
-      isFalse,
+      GainPeriod.around(GainSpan.month, const Day(2026, 11, 21)),
+      const GainPeriod(Day(2026, 11, 1), Day(2026, 11, 30)),
     );
+    expect(week.shift(-1, GainSpan.week).start, const Day(2026, 11, 9));
   });
 
   test('weekly profit counts only sales in that week', () {
-    final week = Week.of(const Day(2026, 11, 21));
+    final week = GainPeriod.around(GainSpan.week, const Day(2026, 11, 21));
     final items = [
       _piece(id: 'sold', soldOn: const Day(2026, 11, 18), soldCents: 15000),
       _piece(
@@ -60,7 +70,7 @@ void main() {
       ),
       _piece(id: 'stock'),
     ];
-    final profit = WeekProfit(week: week, items: items);
+    final profit = PeriodProfit(period: week, items: items);
     expect(profit.pieceCount, 2);
     expect(profit.revenueCents, 20000);
     expect(profit.costCents, 13000);
@@ -132,8 +142,8 @@ void main() {
     final stored = reopened.find('ring');
     expect(stored?.isSold, isTrue);
     expect(
-      WeekProfit(
-        week: Week.of(reopened.today),
+      PeriodProfit(
+        period: GainPeriod.around(GainSpan.week, reopened.today),
         items: reopened.items,
       ).profitCents,
       10000,

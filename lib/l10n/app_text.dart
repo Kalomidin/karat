@@ -42,10 +42,19 @@ class AppText {
   String get email => ru ? 'Почта' : 'Email';
   String get shopName => ru ? 'Название мастерской' : 'Shop name';
   String get save => ru ? 'Сохранить' : 'Save';
+  String get ok => 'OK';
+  String get updateFailed => ru ? 'Не удалось обновить' : 'Update failed';
   String get newPiece => ru ? 'Новое изделие' : 'New piece';
   String get editPiece => ru ? 'Изменить изделие' : 'Edit piece';
   String get stock => ru ? 'Наличие' : 'Stock';
-  String get week => ru ? 'Неделя' : 'Week';
+  String get gains => ru ? 'Прибыль' : 'Gains';
+  String get daySpan => ru ? 'День' : 'Day';
+  String get weekSpan => ru ? 'Неделя' : 'Week';
+  String get monthSpan => ru ? 'Месяц' : 'Month';
+  String get customSpan => ru ? 'Свой' : 'Custom';
+  String get todayLabel => ru ? 'Сегодня' : 'Today';
+  String get thisMonth => ru ? 'Этот месяц' : 'This month';
+  String get chooseDates => ru ? 'Выбрать даты' : 'Choose dates';
   String get inStock => ru ? 'В наличии' : 'In stock';
   String get sold => ru ? 'Продано' : 'Sold';
   String get searchPieces => ru ? 'Поиск изделий' : 'Search pieces';
@@ -84,8 +93,8 @@ class AppText {
   String get nameRequired =>
       ru ? 'Укажите название.' : 'Give the piece a name.';
   String get purityRequired => ru
-      ? 'Укажите пробу, например 18K или 925.'
-      : 'Add the purity, such as 18K or 925.';
+      ? 'Укажите пробу, например 750 или 585.'
+      : 'Add the purity, such as 750 or 585.';
   String get weightRequired =>
       ru ? 'Укажите вес в граммах.' : 'Enter the weight in grams.';
   String get costRequired =>
@@ -102,23 +111,22 @@ class AppText {
   String get recordSale => ru ? 'Записать продажу' : 'Record sale';
   String get thisWeek => ru ? 'Эта неделя' : 'This week';
   String get mondayToSunday => ru ? 'Понедельник–воскресенье' : 'Monday–Sunday';
-  String get previousWeek => ru ? 'Предыдущая неделя' : 'Previous week';
-  String get nextWeek => ru ? 'Следующая неделя' : 'Next week';
-  String get noSalesThisWeek =>
-      ru ? 'На этой неделе продаж нет.' : 'No sales this week.';
+  String get previousPeriod => ru ? 'Предыдущий период' : 'Previous period';
+  String get nextPeriod => ru ? 'Следующий период' : 'Next period';
+  String get noSalesInPeriod =>
+      ru ? 'В этом периоде продаж нет.' : 'No sales in this period.';
   String get revenue => ru ? 'Выручка' : 'Revenue';
   String get pieces => ru ? 'Изделия' : 'Pieces';
   String get returnToStockTitle =>
       ru ? 'Вернуть в наличие?' : 'Return to stock?';
-  String get returnToStockBody => ru
-      ? 'Эта продажа исчезнет из недельной прибыли.'
-      : 'This sale leaves the weekly profit.';
+  String get returnToStockBody =>
+      ru ? 'Эта продажа исчезнет из прибыли.' : 'This sale leaves the gains.';
   String get returnAction => ru ? 'Вернуть' : 'Return';
   String get returnToStock => ru ? 'Вернуть в наличие' : 'Return to stock';
   String get removeTitle => ru ? 'Удалить изделие?' : 'Remove this piece?';
   String get removeSoldBody => ru
-      ? 'Оно исчезнет из книги и из недель, где было учтено.'
-      : 'It leaves the stock book and any week it was counted in.';
+      ? 'Оно исчезнет из книги и из прибыли, где было учтено.'
+      : 'It leaves the stock book and the gains it was counted in.';
   String get removeStockBody =>
       ru ? 'Оно исчезнет из книги учёта.' : 'It leaves the stock book.';
   String get remove => ru ? 'Удалить' : 'Remove';
@@ -169,6 +177,7 @@ class AppText {
         ru
             ? 'Не удалось сохранить книгу учёта на этом устройстве.'
             : 'The stock book on this device could not be saved.',
+      BookNotice.updateFailed => updateFailed,
       BookNotice.soldLocked =>
         ru
             ? 'Проданные изделия остаются как записаны.'

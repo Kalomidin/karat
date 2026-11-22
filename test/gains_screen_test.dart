@@ -52,7 +52,7 @@ void main() {
       KaratApp(controller: controller, locales: LocaleController()),
     );
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Week'));
+    await tester.tap(find.text('Gains'));
     await tester.pumpAndSettle();
 
     expect(_amount(tester, 'week-gain-USD'), '+\$100');
@@ -68,6 +68,13 @@ void main() {
     expect(_amount(tester, 'week-profit'), '+TJS30');
     expect(find.text('Somoni ring'), findsOneWidget);
     expect(find.text('Dollar ring'), findsNothing);
+
+    await tester.tap(find.byKey(const Key('gain-span-day')));
+    await tester.pumpAndSettle();
+
+    expect(_amount(tester, 'week-profit'), 'TJS0');
+    expect(find.text('Somoni ring'), findsNothing);
+    expect(find.text('No sales in this period.'), findsOneWidget);
   });
 }
 
